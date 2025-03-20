@@ -1,6 +1,6 @@
 
 // Judge0 API endpoints
-const API_SUBMISSION_URL = "https://judge0-arenahq-mitwpu.in/submissions";
+const API_SUBMISSION_URL = "https://judge0.arenahq-mitwpu.in/submissions";
 
 import { supabase } from "@/integrations/supabase/client";
 
@@ -27,7 +27,7 @@ export function formatCodeForSubmission(code: string, language_id: number): any 
 }
 
 // Submit code to Judge0
-export async function submitCode(code: string, language_id: number, stdin: string = ""): Promise<string> {
+export async function submitCode(code: string, language_id: number, stdin: string = "",stdout: string = ""): Promise<string> {
   try {
     const response = await fetch(API_SUBMISSION_URL, {
       method: "POST",
@@ -38,7 +38,7 @@ export async function submitCode(code: string, language_id: number, stdin: strin
         source_code: code,
         language_id: language_id,
         stdin: stdin,
-        expected_output: "12",
+        expected_output: stdout,
       }),
     });
     
