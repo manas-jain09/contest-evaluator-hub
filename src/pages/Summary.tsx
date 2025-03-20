@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, Award, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { questions } from '@/utils/contestUtils';
+import { fetchQuestions } from '@/utils/contestUtils';
 
 interface ContestResult {
   totalScore: number;
@@ -26,8 +26,24 @@ const Summary = () => {
   const [results, setResults] = useState<ContestResult | null>(null);
   const [userInfo, setUserInfo] = useState<any>(null);
   const [isTerminated, setIsTerminated] = useState(false);
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
+    // Load questions from database
+    const loadQuestions = async () => {
+      try {
+        const loadedQuestions = await fetchQuestions();
+        setQuestions(loadedQuestions);
+      } catch (error) {
+        console.error("Error loading questions:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadQuestions();
+    
     // Check for termination flag in URL
     const searchParams = new URLSearchParams(location.search);
     if (searchParams.get('terminated') === 'true') {
@@ -52,6 +68,17 @@ const Summary = () => {
       }
     }
   }, [navigate, location.search]);
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="h-8 w-8 rounded-full border-2 border-primary/10 border-t-primary animate-spin mb-4"></div>
+          <p className="text-sm text-muted-foreground">Loading summary...</p>
+        </div>
+      </div>
+    );
+  }
   
   if (!userInfo) {
     return (
@@ -124,7 +151,7 @@ const Summary = () => {
                 </div>
               </div>
               
-              {results && (
+              {results && questions.length > 0 && (
                 <div className="mt-6 space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
@@ -156,7 +183,7 @@ const Summary = () => {
                                 <h4 className="font-medium">{question.title}</h4>
                                 
                                 <div className="flex items-center mt-1">
-                                  {questionResult.submitted ? (
+                                  {questionResult?.submitted ? (
                                     <>
                                       <CheckCircle className="h-4 w-4 text-contest-green mr-1.5" />
                                       <span className="text-sm text-contest-green">Submitted</span>
@@ -172,7 +199,7 @@ const Summary = () => {
                               
                               <div className="text-right">
                                 <div className="text-xl font-semibold">
-                                  {questionResult.score} / {questionResult.maxScore}
+                                  {questionResult?.score || 0} / {questionResult?.maxScore || 0}
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-0.5">
                                   points
@@ -180,7 +207,7 @@ const Summary = () => {
                               </div>
                             </div>
                             
-                            {questionResult.submitted && questionResult.testResults && (
+                            {questionResult?.submitted && questionResult?.testResults && (
                               <div className="mt-4 pt-4 border-t border-gray-100">
                                 <div className="text-sm text-muted-foreground mb-2">Test Cases</div>
                                 <div className="grid grid-cols-2 gap-2">

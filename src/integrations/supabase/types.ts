@@ -9,7 +9,150 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      constraints: {
+        Row: {
+          created_at: string
+          description: string
+          id: number
+          question_id: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: number
+          question_id: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: number
+          question_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "constraints_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      examples: {
+        Row: {
+          created_at: string
+          explanation: string | null
+          id: number
+          input: string
+          output: string
+          question_id: number
+        }
+        Insert: {
+          created_at?: string
+          explanation?: string | null
+          id?: number
+          input: string
+          output: string
+          question_id: number
+        }
+        Update: {
+          created_at?: string
+          explanation?: string | null
+          id?: number
+          input?: string
+          output?: string
+          question_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "examples_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      language_templates: {
+        Row: {
+          created_at: string
+          id: number
+          name: string
+          template: string
+        }
+        Insert: {
+          created_at?: string
+          id: number
+          name: string
+          template: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          name?: string
+          template?: string
+        }
+        Relationships: []
+      }
+      questions: {
+        Row: {
+          created_at: string
+          description: string
+          id: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: number
+          title?: string
+        }
+        Relationships: []
+      }
+      test_cases: {
+        Row: {
+          created_at: string
+          expected: string
+          id: number
+          input: string
+          points: number
+          question_id: number
+          visible: boolean
+        }
+        Insert: {
+          created_at?: string
+          expected: string
+          id?: number
+          input: string
+          points?: number
+          question_id: number
+          visible?: boolean
+        }
+        Update: {
+          created_at?: string
+          expected?: string
+          id?: number
+          input?: string
+          points?: number
+          question_id?: number
+          visible?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_cases_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

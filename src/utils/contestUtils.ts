@@ -83,20 +83,22 @@ export const getLanguageTemplates = async () => {
   
   // Convert array to object with language_id as key
   const templates: Record<number, string> = {};
-  data.forEach(template => {
-    templates[template.id] = template.template;
-  });
+  if (data) {
+    data.forEach(template => {
+      templates[template.id] = template.template;
+    });
+  }
   
   return templates;
 };
 
-// Fetch questions from database
+// Fetch questions from database with all related data
 export const fetchQuestions = async () => {
   const { data: questionsData, error: questionsError } = await supabase
     .from('questions')
     .select('*');
   
-  if (questionsError) {
+  if (questionsError || !questionsData) {
     console.error("Error fetching questions:", questionsError);
     return [];
   }
@@ -137,15 +139,15 @@ export const fetchQuestions = async () => {
     }
     
     // Map constraint objects to constraint strings
-    const constraintStrings = constraints.map(constraint => constraint.description);
+    const constraintStrings = constraints ? constraints.map(constraint => constraint.description) : [];
     
     return {
       id: question.id,
       title: question.title,
       description: question.description,
-      examples,
+      examples: examples || [],
       constraints: constraintStrings,
-      testCases
+      testCases: testCases || []
     };
   }));
   
