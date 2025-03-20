@@ -38,7 +38,7 @@ export async function submitCode(code: string, language_id: number, stdin: strin
         source_code: code,
         language_id: language_id,
         stdin: stdin,
-        expected_output: stdout,
+        expected_output: "",
       }),
     });
     
