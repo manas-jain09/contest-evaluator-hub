@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/utils/toast';
 
 interface CodeEditorProps {
   initialCode: string;

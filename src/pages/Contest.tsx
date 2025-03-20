@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/utils/toast';
 import CodeEditor from '@/components/CodeEditor';
 import TestCaseResult from '@/components/TestCaseResult';
 import FullscreenAlert from '@/components/FullscreenAlert';
@@ -34,7 +33,6 @@ const Contest = () => {
   
   const currentQuestion = questions[currentQuestionIndex];
   
-  // Initialize user code with template code
   useEffect(() => {
     const initialCode: Record<number, string> = {};
     questions.forEach((q) => {
@@ -43,7 +41,6 @@ const Contest = () => {
     setUserCode(initialCode);
   }, []);
   
-  // Check if user is registered and contest has started
   useEffect(() => {
     const userData = sessionStorage.getItem('contestUser');
     const startTime = sessionStorage.getItem('contestStartTime');
@@ -60,9 +57,8 @@ const Contest = () => {
       return;
     }
     
-    // Set contest time (60 minutes)
     const contestStartTime = JSON.parse(startTime);
-    const contestEndTime = contestStartTime + (60 * 60 * 1000); // 60 minutes in milliseconds
+    const contestEndTime = contestStartTime + (60 * 60 * 1000);
     
     const interval = setInterval(() => {
       const now = Date.now();
@@ -72,7 +68,6 @@ const Contest = () => {
         clearInterval(interval);
         setTimeLeft(0);
         toast.error("Contest time is up!");
-        // End contest automatically
         handleEndContest();
       } else {
         setTimeLeft(remaining);
@@ -99,7 +94,6 @@ const Contest = () => {
   const handleRun = async (code: string) => {
     setIsProcessing(true);
     
-    // Reset test results for this question's visible test cases
     const initialResults: TestResult[] = currentQuestion.testCases
       .filter(tc => tc.visible)
       .map((tc, index) => ({
@@ -116,33 +110,28 @@ const Contest = () => {
       [currentQuestion.id]: initialResults
     }));
     
-    // Simulate code execution for visible test cases
     try {
-      // This is a mock implementation. In a real app, this would call the Judge0 API
       const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
       
-      // Process test cases one by one with a delay between each
       for (let i = 0; i < initialResults.length; i++) {
-        await delay(1000 + Math.random() * 1000); // Random delay to simulate processing
+        await delay(1000 + Math.random() * 1000);
         
         const testCase = currentQuestion.testCases.find(tc => tc.visible && tc.points === initialResults[i].points);
         if (!testCase) continue;
         
-        // Mock running the code (in a real app, this would evaluate the user's code)
         let output, status, message;
         
         try {
-          // Very simplistic evaluation - this is just a mock!
-          // In a real app, you would use the Judge0 API
-          const mockOutput = code.includes(`return [${testCase.expected.join(', ')}]`) || 
-                             code.includes(`return ${testCase.expected}`);
+          const mockOutput = Array.isArray(testCase.expected) 
+            ? code.includes(`return [${testCase.expected.join(', ')}]`) 
+            : code.includes(`return ${testCase.expected}`);
           
           if (mockOutput) {
             status = 'success';
             output = JSON.stringify(testCase.expected);
           } else {
             status = 'error';
-            output = '[1, 3]'; // Mock wrong output
+            output = '[1, 3]';
             message = 'Output does not match expected result.';
           }
         } catch (error) {
@@ -150,7 +139,6 @@ const Contest = () => {
           message = 'Runtime error occurred.';
         }
         
-        // Update this specific test result
         setTestResults(prev => {
           const updatedResults = [...(prev[currentQuestion.id] || [])];
           updatedResults[i] = {
@@ -177,19 +165,14 @@ const Contest = () => {
     toast.info("Submitting your solution...");
     
     try {
-      // This would use the actual Judge0 API in a real implementation
-      // For now, we'll use a mock implementation similar to handleRun
-      
       const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-      await delay(2000); // Simulate submission delay
+      await delay(2000);
       
-      // Mark this question as submitted
       setSubmittedQuestions(prev => ({
         ...prev,
         [currentQuestion.id]: true
       }));
       
-      // Store code in sessionStorage for later use in summary
       const storedSubmissions = JSON.parse(sessionStorage.getItem('contestSubmissions') || '{}');
       sessionStorage.setItem('contestSubmissions', JSON.stringify({
         ...storedSubmissions,
@@ -201,7 +184,6 @@ const Contest = () => {
       
       toast.success("Solution submitted successfully!");
       
-      // Navigate to next question if available
       if (currentQuestionIndex < questions.length - 1) {
         setTimeout(() => {
           setCurrentQuestionIndex(currentQuestionIndex + 1);
@@ -227,7 +209,6 @@ const Contest = () => {
   };
   
   const handleEndContest = () => {
-    // Calculate scores based on test results and submitted questions
     const results: Record<number, any> = {};
     let totalScore = 0;
     
@@ -235,10 +216,8 @@ const Contest = () => {
       const isSubmitted = submittedQuestions[question.id];
       let questionScore = 0;
       
-      // Simulate scoring (in a real app, you'd use actual test results)
       if (isSubmitted) {
         const testResults = question.testCases.map(tc => {
-          // Very simplistic scoring - this would be based on actual test results in a real app
           const code = userCode[question.id] || '';
           const passes = code.includes(`return [${tc.expected.join(', ')}]`) || code.includes(`return ${tc.expected}`);
           return { passed: passes, points: tc.points };
@@ -262,14 +241,12 @@ const Contest = () => {
       }
     });
     
-    // Store contest results
     sessionStorage.setItem('contestResults', JSON.stringify({
       totalScore,
       questions: results,
       completedAt: Date.now()
     }));
     
-    // Navigate to summary page
     navigate('/summary');
   };
   
@@ -312,7 +289,6 @@ const Contest = () => {
       </header>
       
       <main className="flex-grow flex overflow-hidden">
-        {/* Left panel - Question */}
         <div className="w-1/2 contest-panel-left">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
@@ -402,7 +378,6 @@ const Contest = () => {
           </div>
         </div>
         
-        {/* Right panel - Code Editor */}
         <div className="w-1/2 contest-panel-right">
           <CodeEditor 
             initialCode={userCode[currentQuestion.id] || currentQuestion.templateCode}

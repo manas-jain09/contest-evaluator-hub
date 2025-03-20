@@ -1,6 +1,5 @@
-
 import { useState, useEffect, useCallback } from 'react';
-import { toast } from "@/components/ui/sonner";
+import { toast } from "@/utils/toast";
 
 export function useFullscreen() {
   const [isFullscreen, setIsFullscreen] = useState(false);
