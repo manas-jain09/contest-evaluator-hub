@@ -1,6 +1,8 @@
 
 // Judge0 API endpoints
-const API_SUBMISSION_URL = "https://judge0.arenahq-mitwpu.in/submissions";
+const API_SUBMISSION_URL = "https://judge0-arenahq-mitwpu.in/submissions";
+
+import { supabase } from "@/integrations/supabase/client";
 
 // Contest code validation
 export const validateContestCode = (code: string): boolean => {
@@ -36,7 +38,6 @@ export async function submitCode(code: string, language_id: number, stdin: strin
         source_code: code,
         language_id: language_id,
         stdin: stdin,
-        expected_output: "12",
       }),
     });
     
@@ -69,128 +70,85 @@ export async function getSubmissionResult(token: string): Promise<any> {
   }
 }
 
-// Get language templates
-export const getLanguageTemplates = () => {
-  return {
-    50: `#include <stdio.h>
-
-int add(int a, int b) {
-    // Your code here
-    return 0;
-}
-
-int main() {
-    int a, b;
-    scanf("%d %d", &a, &b);
-    printf("%d\\n", add(a, b));
-    return 0;
-}`,
-    54: `#include <iostream>
-using namespace std;
-
-int add(int a, int b) {
-    // Your code here
-    return 0;
-}
-
-int main() {
-    int a, b;
-    cin >> a >> b;
-    cout << add(a, b) << endl;
-    return 0;
-}`,
-  };
+// Get language templates from database
+export const getLanguageTemplates = async () => {
+  const { data, error } = await supabase
+    .from('language_templates')
+    .select('*');
+  
+  if (error) {
+    console.error("Error fetching language templates:", error);
+    return {};
+  }
+  
+  // Convert array to object with language_id as key
+  const templates: Record<number, string> = {};
+  data.forEach(template => {
+    templates[template.id] = template.template;
+  });
+  
+  return templates;
 };
 
-// Mock questions data
-export const questions = [
-  {
-    id: 1,
-    title: "Add Two Numbers",
-    description: `Write a function that takes two integers as input and returns their sum.
-
-Your task is to implement the 'add' function that takes two integers 'a' and 'b' as parameters and returns their sum.`,
-    examples: [
-      {
-        input: "a = 5, b = 7",
-        output: "12",
-        explanation: "5 + 7 = 12"
-      },
-      {
-        input: "a = -3, b = 8",
-        output: "5",
-        explanation: "-3 + 8 = 5"
-      }
-    ],
-    constraints: [
-      "-1000 <= a, b <= 1000"
-    ],
-    testCases: [
-      {
-        input: "5 7",
-        expected: 12,
-        visible: true,
-        points: 5
-      },
-      {
-        input: "-3 8",
-        expected: 5,
-        visible: true,
-        points: 5
-      },
-      {
-        input: "100 -50",
-        expected: 50,
-        visible: false,
-        points: 10
-      }
-    ]
-  },
-  {
-    id: 2,
-    title: "Two Sum",
-    description: `Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.
-    
-You may assume that each input would have exactly one solution, and you may not use the same element twice.
-
-You can return the answer in any order.`,
-    examples: [
-      {
-        input: "nums = [2,7,11,15], target = 9",
-        output: "[0,1]",
-        explanation: "Because nums[0] + nums[1] == 9, we return [0, 1]."
-      },
-      {
-        input: "nums = [3,2,4], target = 6",
-        output: "[1,2]",
-        explanation: "Because nums[1] + nums[2] == 6, we return [1, 2]."
-      }
-    ],
-    constraints: [
-      "2 <= nums.length <= 10^4",
-      "-10^9 <= nums[i] <= 10^9",
-      "-10^9 <= target <= 10^9",
-      "Only one valid answer exists."
-    ],
-    testCases: [
-      {
-        input: "[2,7,11,15] 9",
-        expected: [0, 1],
-        visible: true,
-        points: 5
-      },
-      {
-        input: "[3,2,4] 6",
-        expected: [1, 2],
-        visible: true,
-        points: 5
-      },
-      {
-        input: "[3,3] 6",
-        expected: [0, 1],
-        visible: false,
-        points: 10
-      }
-    ]
+// Fetch questions from database
+export const fetchQuestions = async () => {
+  const { data: questionsData, error: questionsError } = await supabase
+    .from('questions')
+    .select('*');
+  
+  if (questionsError) {
+    console.error("Error fetching questions:", questionsError);
+    return [];
   }
-];
+  
+  // Get all related data for each question
+  const questions = await Promise.all(questionsData.map(async (question) => {
+    // Fetch examples
+    const { data: examples, error: examplesError } = await supabase
+      .from('examples')
+      .select('*')
+      .eq('question_id', question.id);
+    
+    if (examplesError) {
+      console.error(`Error fetching examples for question ${question.id}:`, examplesError);
+      return null;
+    }
+    
+    // Fetch constraints
+    const { data: constraints, error: constraintsError } = await supabase
+      .from('constraints')
+      .select('*')
+      .eq('question_id', question.id);
+    
+    if (constraintsError) {
+      console.error(`Error fetching constraints for question ${question.id}:`, constraintsError);
+      return null;
+    }
+    
+    // Fetch test cases
+    const { data: testCases, error: testCasesError } = await supabase
+      .from('test_cases')
+      .select('*')
+      .eq('question_id', question.id);
+    
+    if (testCasesError) {
+      console.error(`Error fetching test cases for question ${question.id}:`, testCasesError);
+      return null;
+    }
+    
+    // Map constraint objects to constraint strings
+    const constraintStrings = constraints.map(constraint => constraint.description);
+    
+    return {
+      id: question.id,
+      title: question.title,
+      description: question.description,
+      examples,
+      constraints: constraintStrings,
+      testCases
+    };
+  }));
+  
+  // Filter out any null values (questions that had errors fetching related data)
+  return questions.filter(question => question !== null);
+};

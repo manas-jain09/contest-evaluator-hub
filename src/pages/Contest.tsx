@@ -10,7 +10,7 @@ import TestCaseResult from '@/components/TestCaseResult';
 import FullscreenAlert from '@/components/FullscreenAlert';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { 
-  questions, 
+  fetchQuestions,
   submitCode, 
   getSubmissionResult, 
   getLanguageTemplates 
@@ -36,17 +36,43 @@ const Contest = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [submittedQuestions, setSubmittedQuestions] = useState<Record<number, boolean>>({});
-  const [languageTemplates] = useState(getLanguageTemplates());
+  const [languageTemplates, setLanguageTemplates] = useState<Record<number, string>>({});
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   const currentQuestion = questions[currentQuestionIndex];
   
+  // Fetch questions and language templates from the database
   useEffect(() => {
-    const initialCode: Record<number, string> = {};
-    questions.forEach((q) => {
-      initialCode[q.id] = languageTemplates[54]; // Default to C++ template
-    });
-    setUserCode(initialCode);
-  }, [languageTemplates]);
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Fetch questions
+        const fetchedQuestions = await fetchQuestions();
+        setQuestions(fetchedQuestions);
+        
+        // Fetch language templates
+        const templates = await getLanguageTemplates();
+        setLanguageTemplates(templates);
+        
+        // Initialize user code with templates
+        const initialCode: Record<number, string> = {};
+        fetchedQuestions.forEach((q) => {
+          initialCode[q.id] = templates[54] || ''; // Default to C++ template
+        });
+        setUserCode(initialCode);
+        
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        toast.error("Failed to load contest data. Please refresh the page.");
+        setIsLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
   
   useEffect(() => {
     const userData = sessionStorage.getItem('contestUser');
@@ -99,17 +125,18 @@ const Contest = () => {
   };
   
   const handleRun = async (code: string, languageId: number) => {
+    if (!currentQuestion) return;
+    
     setIsProcessing(true);
     
     // Initialize test results as 'processing'
     const initialResults: TestResult[] = currentQuestion.testCases
-      .filter(tc => tc.visible)
-      .map((tc, index) => ({
+      .filter((tc: any) => tc.visible)
+      .map((tc: any, index: number) => ({
         index: index + 1,
         status: 'processing',
-        input: typeof tc.input === 'string' ? tc.input : JSON.stringify(tc.input),
-        expected: typeof tc.expected === 'number' ? tc.expected.toString() : 
-                 Array.isArray(tc.expected) ? JSON.stringify(tc.expected) : tc.expected?.toString(),
+        input: tc.input,
+        expected: tc.expected,
         visible: tc.visible,
         points: tc.points
       }));
@@ -122,7 +149,7 @@ const Contest = () => {
     try {
       // Process each visible test case
       for (let i = 0; i < initialResults.length; i++) {
-        const testCase = currentQuestion.testCases.find((tc, idx) => tc.visible && idx === i);
+        const testCase = currentQuestion.testCases.find((tc: any, idx: number) => tc.visible && idx === i);
         if (!testCase) continue;
         
         // Update status to processing
@@ -139,7 +166,7 @@ const Contest = () => {
         });
         
         // Submit to Judge0
-        const stdin = typeof testCase.input === 'string' ? testCase.input : JSON.stringify(testCase.input);
+        const stdin = testCase.input;
         const token = await submitCode(code, languageId, stdin);
         
         // Poll for results (retry a few times with delay)
@@ -161,10 +188,10 @@ const Contest = () => {
         
         // Update test result based on Judge0 response
         if (result) {
+          const expectedOutput = testCase.expected;
           const isSuccess = 
             result.status.id === 3 && // Status 3 means "Accepted"
-            (result.stdout?.trim() === testCase.expected?.toString().trim() ||
-             result.stdout?.trim() === JSON.stringify(testCase.expected).trim());
+            (result.stdout?.trim() === expectedOutput.trim());
           
           setTestResults(prev => {
             const updatedResults = [...(prev[currentQuestion.id] || [])];
@@ -207,6 +234,8 @@ const Contest = () => {
   };
   
   const handleSubmit = async (code: string, languageId: number) => {
+    if (!currentQuestion) return;
+    
     setIsProcessing(true);
     toast.info("Submitting your solution...");
     
@@ -216,7 +245,7 @@ const Contest = () => {
       const results = [];
       
       for (const testCase of allTestCases) {
-        const stdin = typeof testCase.input === 'string' ? testCase.input : JSON.stringify(testCase.input);
+        const stdin = testCase.input;
         const token = await submitCode(code, languageId, stdin);
         
         // Poll for results
@@ -237,10 +266,10 @@ const Contest = () => {
         }
         
         if (result) {
+          const expectedOutput = testCase.expected;
           const isSuccess = 
             result.status.id === 3 && // Status 3 means "Accepted"
-            (result.stdout?.trim() === testCase.expected?.toString().trim() ||
-             result.stdout?.trim() === JSON.stringify(testCase.expected).trim());
+            (result.stdout?.trim() === expectedOutput.trim());
           
           results.push({
             testCase,
@@ -323,7 +352,7 @@ const Contest = () => {
         results[question.id] = {
           submitted: true,
           score: submission.score || 0,
-          maxScore: question.testCases.reduce((sum, tc) => sum + (tc.points || 0), 0),
+          maxScore: question.testCases.reduce((sum: number, tc: any) => sum + (tc.points || 0), 0),
           languageId: submission.languageId
         };
         totalScore += submission.score || 0;
@@ -331,7 +360,7 @@ const Contest = () => {
         results[question.id] = {
           submitted: false,
           score: 0,
-          maxScore: question.testCases.reduce((sum, tc) => sum + (tc.points || 0), 0)
+          maxScore: question.testCases.reduce((sum: number, tc: any) => sum + (tc.points || 0), 0)
         };
       }
     });
@@ -345,7 +374,7 @@ const Contest = () => {
     navigate('/summary');
   };
   
-  if (timeLeft === null) {
+  if (isLoading || timeLeft === null || !currentQuestion) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center">
@@ -435,7 +464,7 @@ const Contest = () => {
             <div>
               <h3 className="text-lg font-medium mb-2">Examples</h3>
               <div className="space-y-4">
-                {currentQuestion.examples.map((example, index) => (
+                {currentQuestion.examples.map((example: any, index: number) => (
                   <div key={index} className="bg-gray-50 rounded-md p-4 border border-gray-100">
                     <div className="mb-2">
                       <span className="text-xs font-medium text-gray-500">Input:</span>
@@ -465,7 +494,7 @@ const Contest = () => {
             <div>
               <h3 className="text-lg font-medium mb-2">Constraints</h3>
               <ul className="list-disc pl-5 text-sm space-y-1">
-                {currentQuestion.constraints.map((constraint, index) => (
+                {currentQuestion.constraints.map((constraint: string, index: number) => (
                   <li key={index}>{constraint}</li>
                 ))}
               </ul>
@@ -475,7 +504,7 @@ const Contest = () => {
         
         <div className="w-1/2 contest-panel-right">
           <CodeEditor 
-            initialCode={userCode[currentQuestion.id] || languageTemplates[54]}
+            initialCode={userCode[currentQuestion.id] || languageTemplates[54] || ''}
             onRun={handleRun}
             onSubmit={handleSubmit}
             isProcessing={isProcessing}
@@ -516,12 +545,12 @@ const Contest = () => {
               )}
             </div>
             
-            {currentQuestion.testCases.some(tc => !tc.visible) && (
+            {currentQuestion.testCases.some((tc: any) => !tc.visible) && (
               <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-100">
                 <div className="flex items-start">
                   <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 mr-2 flex-shrink-0" />
                   <p className="text-sm text-muted-foreground">
-                    <span className="font-medium">Note:</span> There are {currentQuestion.testCases.filter(tc => !tc.visible).length} hidden test cases that will be evaluated when you submit your solution.
+                    <span className="font-medium">Note:</span> There are {currentQuestion.testCases.filter((tc: any) => !tc.visible).length} hidden test cases that will be evaluated when you submit your solution.
                   </p>
                 </div>
               </div>
