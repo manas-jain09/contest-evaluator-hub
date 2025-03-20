@@ -1,6 +1,6 @@
 
 // Judge0 API endpoints
-const API_SUBMISSION_URL = "http://judge0-arenahq-mitwpu.in/submissions";
+const API_SUBMISSION_URL = "http://judge0.arenahq-mitwpu.in/submissions";
 
 // Contest code validation
 export const validateContestCode = (code: string): boolean => {
@@ -36,7 +36,7 @@ export async function submitCode(code: string, language_id: number, stdin: strin
         source_code: code,
         language_id: language_id,
         stdin: stdin,
-        expected_output: "",
+        expected_output: "12",
       }),
     });
     
