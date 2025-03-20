@@ -1,22 +1,33 @@
+
 import React, { useState, useEffect } from 'react';
 import { Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/utils/toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface CodeEditorProps {
   initialCode: string;
-  onRun: (code: string) => void;
-  onSubmit: (code: string) => void;
+  onRun: (code: string, languageId: number) => void;
+  onSubmit: (code: string, languageId: number) => void;
   isProcessing: boolean;
+  languageTemplates: Record<number, string>;
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({ 
   initialCode, 
   onRun, 
   onSubmit,
-  isProcessing 
+  isProcessing,
+  languageTemplates
 }) => {
   const [code, setCode] = useState(initialCode);
+  const [languageId, setLanguageId] = useState<number>(54); // Default to C++ (54)
+  
+  useEffect(() => {
+    if (languageTemplates[languageId]) {
+      setCode(languageTemplates[languageId]);
+    }
+  }, [languageId, languageTemplates]);
   
   useEffect(() => {
     setCode(initialCode);
@@ -27,7 +38,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       toast.error("Please write some code before running");
       return;
     }
-    onRun(code);
+    onRun(code, languageId);
   };
   
   const handleSubmit = () => {
@@ -35,7 +46,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       toast.error("Please write some code before submitting");
       return;
     }
-    onSubmit(code);
+    onSubmit(code, languageId);
   };
   
   return (
@@ -43,6 +54,19 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       <div className="flex justify-between items-center mb-3">
         <div className="text-sm font-medium">Code Editor</div>
         <div className="flex space-x-2">
+          <Select 
+            value={languageId.toString()} 
+            onValueChange={(value) => setLanguageId(Number(value))}
+            disabled={isProcessing}
+          >
+            <SelectTrigger className="w-[120px] h-9">
+              <SelectValue placeholder="Language" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="50">C</SelectItem>
+              <SelectItem value="54">C++</SelectItem>
+            </SelectContent>
+          </Select>
           <Button
             variant="outline"
             size="sm"

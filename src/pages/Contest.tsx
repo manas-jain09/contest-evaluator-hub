@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
@@ -8,7 +9,12 @@ import CodeEditor from '@/components/CodeEditor';
 import TestCaseResult from '@/components/TestCaseResult';
 import FullscreenAlert from '@/components/FullscreenAlert';
 import { useFullscreen } from '@/hooks/useFullscreen';
-import { questions, submitCode, getSubmissionResult } from '@/utils/contestUtils';
+import { 
+  questions, 
+  submitCode, 
+  getSubmissionResult, 
+  getLanguageTemplates 
+} from '@/utils/contestUtils';
 
 type TestResult = {
   index: number;
@@ -30,16 +36,17 @@ const Contest = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [submittedQuestions, setSubmittedQuestions] = useState<Record<number, boolean>>({});
+  const [languageTemplates] = useState(getLanguageTemplates());
   
   const currentQuestion = questions[currentQuestionIndex];
   
   useEffect(() => {
     const initialCode: Record<number, string> = {};
     questions.forEach((q) => {
-      initialCode[q.id] = q.templateCode;
+      initialCode[q.id] = languageTemplates[54]; // Default to C++ template
     });
     setUserCode(initialCode);
-  }, []);
+  }, [languageTemplates]);
   
   useEffect(() => {
     const userData = sessionStorage.getItem('contestUser');
@@ -91,16 +98,18 @@ const Contest = () => {
     }));
   };
   
-  const handleRun = async (code: string) => {
+  const handleRun = async (code: string, languageId: number) => {
     setIsProcessing(true);
     
+    // Initialize test results as 'processing'
     const initialResults: TestResult[] = currentQuestion.testCases
       .filter(tc => tc.visible)
       .map((tc, index) => ({
         index: index + 1,
         status: 'processing',
-        input: JSON.stringify(tc.input),
-        expected: JSON.stringify(tc.expected),
+        input: typeof tc.input === 'string' ? tc.input : JSON.stringify(tc.input),
+        expected: typeof tc.expected === 'number' ? tc.expected.toString() : 
+                 Array.isArray(tc.expected) ? JSON.stringify(tc.expected) : tc.expected?.toString(),
         visible: tc.visible,
         points: tc.points
       }));
@@ -111,63 +120,148 @@ const Contest = () => {
     }));
     
     try {
-      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-      
+      // Process each visible test case
       for (let i = 0; i < initialResults.length; i++) {
-        await delay(1000 + Math.random() * 1000);
-        
-        const testCase = currentQuestion.testCases.find(tc => tc.visible && tc.points === initialResults[i].points);
+        const testCase = currentQuestion.testCases.find((tc, idx) => tc.visible && idx === i);
         if (!testCase) continue;
         
-        let output, status, message;
-        
-        try {
-          const mockOutput = Array.isArray(testCase.expected) 
-            ? code.includes(`return [${testCase.expected.join(', ')}]`) 
-            : code.includes(`return ${testCase.expected}`);
-          
-          if (mockOutput) {
-            status = 'success';
-            output = JSON.stringify(testCase.expected);
-          } else {
-            status = 'error';
-            output = '[1, 3]';
-            message = 'Output does not match expected result.';
-          }
-        } catch (error) {
-          status = 'error';
-          message = 'Runtime error occurred.';
-        }
-        
+        // Update status to processing
         setTestResults(prev => {
           const updatedResults = [...(prev[currentQuestion.id] || [])];
           updatedResults[i] = {
             ...updatedResults[i],
-            status: status as 'success' | 'error',
-            output,
-            message
+            status: 'processing'
           };
           return {
             ...prev,
             [currentQuestion.id]: updatedResults
           };
         });
+        
+        // Submit to Judge0
+        const stdin = typeof testCase.input === 'string' ? testCase.input : JSON.stringify(testCase.input);
+        const token = await submitCode(code, languageId, stdin);
+        
+        // Poll for results (retry a few times with delay)
+        let attempts = 0;
+        let result;
+        
+        while (attempts < 10) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          try {
+            result = await getSubmissionResult(token);
+            if (result.status && result.status.id >= 3) {
+              break; // Status 3+ means the execution is done
+            }
+          } catch (error) {
+            console.error("Error checking submission status:", error);
+          }
+          attempts++;
+        }
+        
+        // Update test result based on Judge0 response
+        if (result) {
+          const isSuccess = 
+            result.status.id === 3 && // Status 3 means "Accepted"
+            (result.stdout?.trim() === testCase.expected?.toString().trim() ||
+             result.stdout?.trim() === JSON.stringify(testCase.expected).trim());
+          
+          setTestResults(prev => {
+            const updatedResults = [...(prev[currentQuestion.id] || [])];
+            updatedResults[i] = {
+              ...updatedResults[i],
+              status: isSuccess ? 'success' : 'error',
+              output: result.stdout || result.stderr || result.compile_output || 'No output',
+              message: !isSuccess ? (
+                result.status.id === 3 ? 'Output does not match expected result.' :
+                result.status.description
+              ) : undefined
+            };
+            return {
+              ...prev,
+              [currentQuestion.id]: updatedResults
+            };
+          });
+        } else {
+          // Timeout or other error
+          setTestResults(prev => {
+            const updatedResults = [...(prev[currentQuestion.id] || [])];
+            updatedResults[i] = {
+              ...updatedResults[i],
+              status: 'error',
+              message: 'Evaluation timed out or failed.'
+            };
+            return {
+              ...prev,
+              [currentQuestion.id]: updatedResults
+            };
+          });
+        }
       }
     } catch (error) {
+      console.error("Error running code:", error);
       toast.error("Error running code. Please try again.");
     } finally {
       setIsProcessing(false);
     }
   };
   
-  const handleSubmit = async (code: string) => {
+  const handleSubmit = async (code: string, languageId: number) => {
     setIsProcessing(true);
     toast.info("Submitting your solution...");
     
     try {
-      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-      await delay(2000);
+      // Run all test cases (visible and hidden)
+      const allTestCases = currentQuestion.testCases;
+      const results = [];
       
+      for (const testCase of allTestCases) {
+        const stdin = typeof testCase.input === 'string' ? testCase.input : JSON.stringify(testCase.input);
+        const token = await submitCode(code, languageId, stdin);
+        
+        // Poll for results
+        let attempts = 0;
+        let result;
+        
+        while (attempts < 10) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          try {
+            result = await getSubmissionResult(token);
+            if (result.status && result.status.id >= 3) {
+              break;
+            }
+          } catch (error) {
+            console.error("Error checking submission status:", error);
+          }
+          attempts++;
+        }
+        
+        if (result) {
+          const isSuccess = 
+            result.status.id === 3 && // Status 3 means "Accepted"
+            (result.stdout?.trim() === testCase.expected?.toString().trim() ||
+             result.stdout?.trim() === JSON.stringify(testCase.expected).trim());
+          
+          results.push({
+            testCase,
+            result,
+            isSuccess
+          });
+        } else {
+          results.push({
+            testCase,
+            result: null,
+            isSuccess: false
+          });
+        }
+      }
+      
+      // Calculate score
+      const score = results.reduce((total, { testCase, isSuccess }) => {
+        return total + (isSuccess ? (testCase.points || 0) : 0);
+      }, 0);
+      
+      // Save submission and results
       setSubmittedQuestions(prev => ({
         ...prev,
         [currentQuestion.id]: true
@@ -178,7 +272,14 @@ const Contest = () => {
         ...storedSubmissions,
         [currentQuestion.id]: {
           code,
-          timestamp: Date.now()
+          languageId,
+          timestamp: Date.now(),
+          score,
+          results: results.map(r => ({
+            testCaseId: r.testCase.input,
+            passed: r.isSuccess,
+            points: r.isSuccess ? r.testCase.points : 0
+          }))
         }
       }));
       
@@ -190,6 +291,7 @@ const Contest = () => {
         }, 1000);
       }
     } catch (error) {
+      console.error("Error submitting solution:", error);
       toast.error("Error submitting solution. Please try again.");
     } finally {
       setIsProcessing(false);
@@ -212,31 +314,24 @@ const Contest = () => {
     const results: Record<number, any> = {};
     let totalScore = 0;
     
+    const storedSubmissions = JSON.parse(sessionStorage.getItem('contestSubmissions') || '{}');
+    
     questions.forEach(question => {
-      const isSubmitted = submittedQuestions[question.id];
-      let questionScore = 0;
+      const submission = storedSubmissions[question.id];
       
-      if (isSubmitted) {
-        const testResults = question.testCases.map(tc => {
-          const code = userCode[question.id] || '';
-          const passes = code.includes(`return [${tc.expected.join(', ')}]`) || code.includes(`return ${tc.expected}`);
-          return { passed: passes, points: tc.points };
-        });
-        
-        questionScore = testResults.reduce((sum, tc) => sum + (tc.passed ? tc.points : 0), 0);
-        totalScore += questionScore;
-        
+      if (submission) {
         results[question.id] = {
           submitted: true,
-          score: questionScore,
-          maxScore: question.testCases.reduce((sum, tc) => sum + tc.points, 0),
-          testResults
+          score: submission.score || 0,
+          maxScore: question.testCases.reduce((sum, tc) => sum + (tc.points || 0), 0),
+          languageId: submission.languageId
         };
+        totalScore += submission.score || 0;
       } else {
         results[question.id] = {
           submitted: false,
           score: 0,
-          maxScore: question.testCases.reduce((sum, tc) => sum + tc.points, 0)
+          maxScore: question.testCases.reduce((sum, tc) => sum + (tc.points || 0), 0)
         };
       }
     });
@@ -380,10 +475,11 @@ const Contest = () => {
         
         <div className="w-1/2 contest-panel-right">
           <CodeEditor 
-            initialCode={userCode[currentQuestion.id] || currentQuestion.templateCode}
+            initialCode={userCode[currentQuestion.id] || languageTemplates[54]}
             onRun={handleRun}
             onSubmit={handleSubmit}
             isProcessing={isProcessing}
+            languageTemplates={languageTemplates}
           />
           
           <div className="mt-6">
