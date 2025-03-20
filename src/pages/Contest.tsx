@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
@@ -42,24 +41,20 @@ const Contest = () => {
   
   const currentQuestion = questions[currentQuestionIndex];
   
-  // Fetch questions and language templates from the database
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         
-        // Fetch questions
         const fetchedQuestions = await fetchQuestions();
         setQuestions(fetchedQuestions);
         
-        // Fetch language templates
         const templates = await getLanguageTemplates();
         setLanguageTemplates(templates);
         
-        // Initialize user code with templates
         const initialCode: Record<number, string> = {};
         fetchedQuestions.forEach((q) => {
-          initialCode[q.id] = templates[54] || ''; // Default to C++ template
+          initialCode[q.id] = templates[54] || '';
         });
         setUserCode(initialCode);
         
@@ -129,7 +124,6 @@ const Contest = () => {
     
     setIsProcessing(true);
     
-    // Initialize test results as 'processing'
     const initialResults: TestResult[] = currentQuestion.testCases
       .filter((tc: any) => tc.visible)
       .map((tc: any, index: number) => ({
@@ -147,12 +141,10 @@ const Contest = () => {
     }));
     
     try {
-      // Process each visible test case
       for (let i = 0; i < initialResults.length; i++) {
         const testCase = currentQuestion.testCases.find((tc: any, idx: number) => tc.visible && idx === i);
         if (!testCase) continue;
         
-        // Update status to processing
         setTestResults(prev => {
           const updatedResults = [...(prev[currentQuestion.id] || [])];
           updatedResults[i] = {
@@ -165,11 +157,10 @@ const Contest = () => {
           };
         });
         
-        // Submit to Judge0
         const stdin = testCase.input;
-        const token = await submitCode(code, languageId, stdin);
+        const expectedOutput = testCase.expected;
+        const token = await submitCode(code, languageId, stdin, expectedOutput);
         
-        // Poll for results (retry a few times with delay)
         let attempts = 0;
         let result;
         
@@ -178,7 +169,7 @@ const Contest = () => {
           try {
             result = await getSubmissionResult(token);
             if (result.status && result.status.id >= 3) {
-              break; // Status 3+ means the execution is done
+              break;
             }
           } catch (error) {
             console.error("Error checking submission status:", error);
@@ -186,11 +177,9 @@ const Contest = () => {
           attempts++;
         }
         
-        // Update test result based on Judge0 response
         if (result) {
-          const expectedOutput = testCase.expected;
           const isSuccess = 
-            result.status.id === 3 && // Status 3 means "Accepted"
+            result.status.id === 3 &&
             (result.stdout?.trim() === expectedOutput.trim());
           
           setTestResults(prev => {
@@ -210,7 +199,6 @@ const Contest = () => {
             };
           });
         } else {
-          // Timeout or other error
           setTestResults(prev => {
             const updatedResults = [...(prev[currentQuestion.id] || [])];
             updatedResults[i] = {
@@ -240,15 +228,14 @@ const Contest = () => {
     toast.info("Submitting your solution...");
     
     try {
-      // Run all test cases (visible and hidden)
       const allTestCases = currentQuestion.testCases;
       const results = [];
       
       for (const testCase of allTestCases) {
         const stdin = testCase.input;
-        const token = await submitCode(code, languageId, stdin);
+        const expectedOutput = testCase.expected;
+        const token = await submitCode(code, languageId, stdin, expectedOutput);
         
-        // Poll for results
         let attempts = 0;
         let result;
         
@@ -266,9 +253,8 @@ const Contest = () => {
         }
         
         if (result) {
-          const expectedOutput = testCase.expected;
           const isSuccess = 
-            result.status.id === 3 && // Status 3 means "Accepted"
+            result.status.id === 3 &&
             (result.stdout?.trim() === expectedOutput.trim());
           
           results.push({
@@ -285,12 +271,10 @@ const Contest = () => {
         }
       }
       
-      // Calculate score
       const score = results.reduce((total, { testCase, isSuccess }) => {
         return total + (isSuccess ? (testCase.points || 0) : 0);
       }, 0);
       
-      // Save submission and results
       setSubmittedQuestions(prev => ({
         ...prev,
         [currentQuestion.id]: true
