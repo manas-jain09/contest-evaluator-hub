@@ -34,7 +34,7 @@ const App = () => (
       <BrowserRouter>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<Register />} />
             <Route path="/register" element={<Register />} />
             <Route path="/instructions" element={<Instructions />} />
             <Route path="/contest" element={<Contest />} />
