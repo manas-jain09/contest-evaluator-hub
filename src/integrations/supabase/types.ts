@@ -38,6 +38,36 @@ export type Database = {
           },
         ]
       }
+      contests: {
+        Row: {
+          contest_code: string
+          created_at: string
+          duration_mins: number
+          end_date: string
+          id: string
+          name: string
+          start_date: string
+        }
+        Insert: {
+          contest_code: string
+          created_at?: string
+          duration_mins: number
+          end_date: string
+          id?: string
+          name: string
+          start_date: string
+        }
+        Update: {
+          contest_code?: string
+          created_at?: string
+          duration_mins?: number
+          end_date?: string
+          id?: string
+          name?: string
+          start_date?: string
+        }
+        Relationships: []
+      }
       examples: {
         Row: {
           created_at: string
@@ -78,42 +108,156 @@ export type Database = {
           created_at: string
           id: number
           name: string
+          question_id: number | null
           template: string
         }
         Insert: {
           created_at?: string
           id: number
           name: string
+          question_id?: number | null
           template: string
         }
         Update: {
           created_at?: string
           id?: number
           name?: string
+          question_id?: number | null
           template?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "language_templates_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       questions: {
         Row: {
+          contest_id: string | null
           created_at: string
           description: string
           id: number
           title: string
         }
         Insert: {
+          contest_id?: string | null
           created_at?: string
           description: string
           id?: number
           title: string
         }
         Update: {
+          contest_id?: string | null
           created_at?: string
           description?: string
           id?: number
           title?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "questions_contest_id_fkey"
+            columns: ["contest_id"]
+            isOneToOne: false
+            referencedRelation: "contests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      results: {
+        Row: {
+          batch: string | null
+          cheating_detected: boolean | null
+          contest_id: string
+          created_at: string
+          email: string
+          id: string
+          name: string
+          prn: string
+          score: number
+          year: string | null
+        }
+        Insert: {
+          batch?: string | null
+          cheating_detected?: boolean | null
+          contest_id: string
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          prn: string
+          score?: number
+          year?: string | null
+        }
+        Update: {
+          batch?: string | null
+          cheating_detected?: boolean | null
+          contest_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          prn?: string
+          score?: number
+          year?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "results_contest_id_fkey"
+            columns: ["contest_id"]
+            isOneToOne: false
+            referencedRelation: "contests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      submissions: {
+        Row: {
+          code: string
+          id: string
+          language_id: number
+          question_id: number
+          result_id: string
+          score: number
+          submitted_at: string
+        }
+        Insert: {
+          code: string
+          id?: string
+          language_id: number
+          question_id: number
+          result_id: string
+          score?: number
+          submitted_at?: string
+        }
+        Update: {
+          code?: string
+          id?: string
+          language_id?: number
+          question_id?: number
+          result_id?: string
+          score?: number
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submissions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submissions_result_id_fkey"
+            columns: ["result_id"]
+            isOneToOne: false
+            referencedRelation: "results"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       test_cases: {
         Row: {

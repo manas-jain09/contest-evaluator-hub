@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
@@ -6,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/utils/toast';
-import { validateContestCode, validatePRN } from '@/utils/contestUtils';
+import { validateContestCode, validatePRN, fetchContestByCode } from '@/utils/contestUtils';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -36,7 +35,7 @@ const Register = () => {
     }
   };
   
-  const validateForm = () => {
+  const validateForm = async () => {
     const newErrors: Record<string, string> = {};
     
     if (!formData.name.trim()) {
@@ -65,33 +64,40 @@ const Register = () => {
     
     if (!formData.contestCode.trim()) {
       newErrors.contestCode = 'Contest code is required';
-    } else if (!validateContestCode(formData.contestCode)) {
-      newErrors.contestCode = 'Invalid contest code format (should be arenacnst-XXXX)';
+    } else if (!(await validateContestCode(formData.contestCode))) {
+      newErrors.contestCode = 'Invalid contest code format or contest does not exist';
     }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) {
+    if (!(await validateForm())) {
       toast.error("Please fix the errors in the form");
       return;
     }
     
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      // Store registration data in sessionStorage
+    try {
+      // Get contest information
+      const contestInfo = await fetchContestByCode(formData.contestCode);
+      
+      // Store registration data and contest info in sessionStorage
       sessionStorage.setItem('contestUser', JSON.stringify(formData));
+      sessionStorage.setItem('contestInfo', JSON.stringify(contestInfo));
       
       setIsSubmitting(false);
       toast.success("Registration successful!");
       navigate('/instructions');
-    }, 1000);
+    } catch (error) {
+      console.error("Registration error:", error);
+      toast.error("Error during registration. Please try again.");
+      setIsSubmitting(false);
+    }
   };
   
   return (

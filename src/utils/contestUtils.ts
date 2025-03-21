@@ -1,13 +1,27 @@
-
 // Judge0 API endpoints
 const API_SUBMISSION_URL = "https://judge0.arenahq-mitwpu.in/submissions";
 
 import { supabase } from "@/integrations/supabase/client";
 
 // Contest code validation
-export const validateContestCode = (code: string): boolean => {
+export const validateContestCode = async (code: string): Promise<boolean> => {
   const pattern = /^arenacnst-\d{4}$/;
-  return pattern.test(code);
+  if (!pattern.test(code)) {
+    return false;
+  }
+  
+  // Check if contest code exists in database
+  const { data, error } = await supabase
+    .from('contests')
+    .select('id')
+    .eq('contest_code', code)
+    .single();
+  
+  if (error || !data) {
+    return false;
+  }
+  
+  return true;
 };
 
 // PRN validation
@@ -72,10 +86,20 @@ export async function getSubmissionResult(token: string): Promise<any> {
 }
 
 // Get language templates from database
-export const getLanguageTemplates = async () => {
-  const { data, error } = await supabase
+export const getLanguageTemplates = async (questionId?: number) => {
+  let query = supabase
     .from('language_templates')
     .select('*');
+  
+  if (questionId) {
+    // If questionId is provided, get templates specific to that question
+    query = query.eq('question_id', questionId);
+  } else {
+    // Otherwise get templates that aren't tied to a specific question
+    query = query.is('question_id', null);
+  }
+  
+  const { data, error } = await query;
   
   if (error) {
     console.error("Error fetching language templates:", error);
@@ -93,11 +117,28 @@ export const getLanguageTemplates = async () => {
   return templates;
 };
 
-// Fetch questions from database with all related data
-export const fetchQuestions = async () => {
+// Fetch contest by contest code
+export const fetchContestByCode = async (code: string) => {
+  const { data, error } = await supabase
+    .from('contests')
+    .select('*')
+    .eq('contest_code', code)
+    .single();
+  
+  if (error) {
+    console.error("Error fetching contest:", error);
+    throw new Error("Failed to fetch contest information");
+  }
+  
+  return data;
+};
+
+// Fetch questions for a specific contest
+export const fetchQuestionsByContest = async (contestId: string) => {
   const { data: questionsData, error: questionsError } = await supabase
     .from('questions')
-    .select('*');
+    .select('*')
+    .eq('contest_id', contestId);
   
   if (questionsError || !questionsData) {
     console.error("Error fetching questions:", questionsError);
@@ -154,4 +195,88 @@ export const fetchQuestions = async () => {
   
   // Filter out any null values (questions that had errors fetching related data)
   return questions.filter(question => question !== null);
+};
+
+// Fetch all questions (legacy method, now calls fetchQuestionsByContest with the first contest)
+export const fetchQuestions = async () => {
+  // Get the first contest
+  const { data: contestData } = await supabase
+    .from('contests')
+    .select('id')
+    .limit(1)
+    .single();
+  
+  if (!contestData) {
+    console.error("No contests found");
+    return [];
+  }
+  
+  return fetchQuestionsByContest(contestData.id);
+};
+
+// Save contest results to the database
+export const saveContestResults = async (
+  contestId: string, 
+  userInfo: { 
+    name: string, 
+    email: string, 
+    prn: string, 
+    year: string, 
+    batch: string 
+  }, 
+  score: number, 
+  cheatingDetected: boolean = false,
+  submissions: Array<{
+    questionId: number,
+    languageId: number,
+    code: string,
+    score: number
+  }>
+) => {
+  try {
+    // Save the result
+    const { data: resultData, error: resultError } = await supabase
+      .from('results')
+      .insert({
+        contest_id: contestId,
+        name: userInfo.name,
+        email: userInfo.email,
+        prn: userInfo.prn,
+        year: userInfo.year,
+        batch: userInfo.batch,
+        cheating_detected: cheatingDetected,
+        score: score
+      })
+      .select()
+      .single();
+    
+    if (resultError) {
+      console.error("Error saving contest results:", resultError);
+      throw new Error("Failed to save contest results");
+    }
+    
+    // Save each submission
+    if (submissions.length > 0) {
+      const submissionRecords = submissions.map(sub => ({
+        result_id: resultData.id,
+        question_id: sub.questionId,
+        language_id: sub.languageId,
+        code: sub.code,
+        score: sub.score
+      }));
+      
+      const { error: submissionError } = await supabase
+        .from('submissions')
+        .insert(submissionRecords);
+      
+      if (submissionError) {
+        console.error("Error saving submissions:", submissionError);
+      }
+    }
+    
+    return resultData;
+  } catch (error) {
+    console.error("Error in saveContestResults:", error);
+    throw error;
+  }
 };

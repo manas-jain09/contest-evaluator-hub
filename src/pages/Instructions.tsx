@@ -7,27 +7,51 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from '@/utils/toast';
 import { useFullscreen } from '@/hooks/useFullscreen';
 
+interface ContestInfo {
+  id: string;
+  name: string;
+  duration_mins: number;
+  contest_code: string;
+  start_date: string;
+  end_date: string;
+}
+
 const Instructions = () => {
   const navigate = useNavigate();
   const [userInfo, setUserInfo] = useState<any>(null);
+  const [contestInfo, setContestInfo] = useState<ContestInfo | null>(null);
   const [accepted, setAccepted] = useState(false);
   const { enterFullscreen } = useFullscreen();
   
   useEffect(() => {
     // Check if user is registered
     const userData = sessionStorage.getItem('contestUser');
+    const contestData = sessionStorage.getItem('contestInfo');
+    
     if (!userData) {
       toast.error("You must register before accessing the instructions");
       navigate('/register');
       return;
     }
     
+    if (!contestData) {
+      toast.error("Contest information is missing");
+      navigate('/register');
+      return;
+    }
+    
     setUserInfo(JSON.parse(userData));
+    setContestInfo(JSON.parse(contestData));
   }, [navigate]);
   
   const handleStartContest = () => {
     if (!accepted) {
       toast.error("You must accept the contest rules to continue");
+      return;
+    }
+    
+    if (!contestInfo) {
+      toast.error("Contest information is missing");
       return;
     }
     
@@ -42,7 +66,7 @@ const Instructions = () => {
     }, 500);
   };
   
-  if (!userInfo) {
+  if (!userInfo || !contestInfo) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center">
@@ -58,7 +82,7 @@ const Instructions = () => {
       <header className="border-b border-gray-100 bg-white">
         <div className="container mx-auto py-4 px-6">
           <div className="flex justify-between items-center">
-            <div className="text-xl font-semibold">Arena Contest</div>
+            <div className="text-xl font-semibold">{contestInfo.name}</div>
             <div className="text-sm text-muted-foreground">
               Welcome, {userInfo.name}
             </div>
@@ -79,7 +103,7 @@ const Instructions = () => {
             <div className="flex items-center space-x-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
               <ClockIcon className="h-8 w-8 text-contest-blue" />
               <div>
-                <h3 className="font-semibold">Contest Duration: 1 hour</h3>
+                <h3 className="font-semibold">Contest Duration: {contestInfo.duration_mins} minutes</h3>
                 <p className="text-sm text-muted-foreground">The timer starts once you click the "Begin Contest" button.</p>
               </div>
             </div>

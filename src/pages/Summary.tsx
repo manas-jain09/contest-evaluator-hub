@@ -4,7 +4,16 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, Award, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { fetchQuestions } from '@/utils/contestUtils';
+import { fetchQuestionsByContest } from '@/utils/contestUtils';
+
+interface ContestInfo {
+  id: string;
+  name: string;
+  duration_mins: number;
+  contest_code: string;
+  start_date: string;
+  end_date: string;
+}
 
 interface ContestResult {
   totalScore: number;
@@ -18,6 +27,7 @@ interface ContestResult {
     }>;
   }>;
   completedAt: number;
+  cheatingDetected?: boolean;
 }
 
 const Summary = () => {
@@ -25,48 +35,59 @@ const Summary = () => {
   const location = useLocation();
   const [results, setResults] = useState<ContestResult | null>(null);
   const [userInfo, setUserInfo] = useState<any>(null);
+  const [contestInfo, setContestInfo] = useState<ContestInfo | null>(null);
   const [isTerminated, setIsTerminated] = useState(false);
   const [questions, setQuestions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
-    // Load questions from database
-    const loadQuestions = async () => {
+    // Load user info, contest info, and results
+    const loadData = async () => {
       try {
-        const loadedQuestions = await fetchQuestions();
-        setQuestions(loadedQuestions);
+        setIsLoading(true);
+        
+        // Get user info
+        const userData = sessionStorage.getItem('contestUser');
+        if (userData) {
+          setUserInfo(JSON.parse(userData));
+        }
+        
+        // Get contest info
+        const contestData = sessionStorage.getItem('contestInfo');
+        if (contestData) {
+          const contestInfo = JSON.parse(contestData);
+          setContestInfo(contestInfo);
+          
+          // Load questions for this contest
+          const loadedQuestions = await fetchQuestionsByContest(contestInfo.id);
+          setQuestions(loadedQuestions);
+        }
+        
+        // Check for termination flag in URL
+        const searchParams = new URLSearchParams(location.search);
+        if (searchParams.get('terminated') === 'true') {
+          setIsTerminated(true);
+        }
+        
+        // Get contest results
+        const resultData = sessionStorage.getItem('contestResults');
+        if (resultData) {
+          setResults(JSON.parse(resultData));
+        } else {
+          // If no results but we're on the summary page, 
+          // either contest was terminated or user navigated here directly
+          if (!isTerminated) {
+            navigate('/');
+          }
+        }
       } catch (error) {
-        console.error("Error loading questions:", error);
+        console.error("Error loading data:", error);
       } finally {
         setIsLoading(false);
       }
     };
     
-    loadQuestions();
-    
-    // Check for termination flag in URL
-    const searchParams = new URLSearchParams(location.search);
-    if (searchParams.get('terminated') === 'true') {
-      setIsTerminated(true);
-    }
-    
-    // Get user info
-    const userData = sessionStorage.getItem('contestUser');
-    if (userData) {
-      setUserInfo(JSON.parse(userData));
-    }
-    
-    // Get contest results
-    const resultData = sessionStorage.getItem('contestResults');
-    if (resultData) {
-      setResults(JSON.parse(resultData));
-    } else {
-      // If no results but we're on the summary page, 
-      // either contest was terminated or user navigated here directly
-      if (!isTerminated) {
-        navigate('/');
-      }
-    }
+    loadData();
   }, [navigate, location.search]);
   
   if (isLoading) {
@@ -80,7 +101,7 @@ const Summary = () => {
     );
   }
   
-  if (!userInfo) {
+  if (!userInfo || !contestInfo) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -99,7 +120,7 @@ const Summary = () => {
       <header className="bg-white border-b border-gray-100">
         <div className="container mx-auto py-4 px-6">
           <div className="flex justify-between items-center">
-            <div className="text-xl font-semibold">Arena Contest</div>
+            <div className="text-xl font-semibold">{contestInfo.name}</div>
             <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
               <Home className="h-4 w-4 mr-2" />
               Home
@@ -110,7 +131,7 @@ const Summary = () => {
       
       <main className="flex-grow container mx-auto py-8 px-6">
         <div className="max-w-3xl mx-auto">
-          {isTerminated ? (
+          {isTerminated || (results && results.cheatingDetected) ? (
             <div className="bg-white rounded-xl p-6 shadow-subtle border border-contest-red/20 mb-6">
               <div className="flex items-start">
                 <div className="h-10 w-10 rounded-full bg-contest-red/10 flex items-center justify-center mr-4 flex-shrink-0">
@@ -134,7 +155,7 @@ const Summary = () => {
                 <div>
                   <h2 className="text-xl font-bold">Contest Completed!</h2>
                   <p className="text-muted-foreground mt-1">
-                    Congratulations on completing the Arena Contest. Here's a summary of your performance.
+                    Congratulations on completing {contestInfo.name}. Here's a summary of your performance.
                   </p>
                 </div>
               </div>

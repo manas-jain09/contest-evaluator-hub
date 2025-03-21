@@ -9,10 +9,11 @@ import TestCaseResult from '@/components/TestCaseResult';
 import FullscreenAlert from '@/components/FullscreenAlert';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { 
-  fetchQuestions,
+  fetchQuestionsByContest,
   submitCode, 
   getSubmissionResult, 
-  getLanguageTemplates 
+  getLanguageTemplates,
+  saveContestResults
 } from '@/utils/contestUtils';
 
 type TestResult = {
@@ -26,6 +27,15 @@ type TestResult = {
   visible?: boolean;
 };
 
+interface ContestInfo {
+  id: string;
+  name: string;
+  duration_mins: number;
+  contest_code: string;
+  start_date: string;
+  end_date: string;
+}
+
 const Contest = () => {
   const navigate = useNavigate();
   const { isFullscreen, warningShown } = useFullscreen();
@@ -37,6 +47,8 @@ const Contest = () => {
   const [submittedQuestions, setSubmittedQuestions] = useState<Record<number, boolean>>({});
   const [languageTemplates, setLanguageTemplates] = useState<Record<number, string>>({});
   const [questions, setQuestions] = useState<any[]>([]);
+  const [contestInfo, setContestInfo] = useState<ContestInfo | null>(null);
+  const [userInfo, setUserInfo] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   const currentQuestion = questions[currentQuestionIndex];
@@ -46,7 +58,22 @@ const Contest = () => {
       try {
         setIsLoading(true);
         
-        const fetchedQuestions = await fetchQuestions();
+        const userData = sessionStorage.getItem('contestUser');
+        const contestData = sessionStorage.getItem('contestInfo');
+        
+        if (!userData || !contestData) {
+          toast.error("Missing user or contest information");
+          navigate('/register');
+          return;
+        }
+        
+        const user = JSON.parse(userData);
+        const contest = JSON.parse(contestData);
+        
+        setUserInfo(user);
+        setContestInfo(contest);
+        
+        const fetchedQuestions = await fetchQuestionsByContest(contest.id);
         setQuestions(fetchedQuestions);
         
         const templates = await getLanguageTemplates();
@@ -67,17 +94,12 @@ const Contest = () => {
     };
     
     fetchData();
-  }, []);
+  }, [navigate]);
   
   useEffect(() => {
-    const userData = sessionStorage.getItem('contestUser');
-    const startTime = sessionStorage.getItem('contestStartTime');
+    if (!contestInfo) return;
     
-    if (!userData) {
-      toast.error("You must register before accessing the contest");
-      navigate('/register');
-      return;
-    }
+    const startTime = sessionStorage.getItem('contestStartTime');
     
     if (!startTime) {
       toast.error("You must start the contest from the instructions page");
@@ -86,7 +108,8 @@ const Contest = () => {
     }
     
     const contestStartTime = JSON.parse(startTime);
-    const contestEndTime = contestStartTime + (60 * 60 * 1000);
+    const contestDurationMs = contestInfo.duration_mins * 60 * 1000;
+    const contestEndTime = contestStartTime + contestDurationMs;
     
     const interval = setInterval(() => {
       const now = Date.now();
@@ -103,7 +126,7 @@ const Contest = () => {
     }, 1000);
     
     return () => clearInterval(interval);
-  }, [navigate]);
+  }, [contestInfo, navigate]);
   
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -222,7 +245,7 @@ const Contest = () => {
   };
   
   const handleSubmit = async (code: string, languageId: number) => {
-    if (!currentQuestion) return;
+    if (!currentQuestion || !contestInfo) return;
     
     setIsProcessing(true);
     toast.info("Submitting your solution...");
@@ -281,7 +304,7 @@ const Contest = () => {
       }));
       
       const storedSubmissions = JSON.parse(sessionStorage.getItem('contestSubmissions') || '{}');
-      sessionStorage.setItem('contestSubmissions', JSON.stringify({
+      const updatedSubmissions = {
         ...storedSubmissions,
         [currentQuestion.id]: {
           code,
@@ -294,7 +317,9 @@ const Contest = () => {
             points: r.isSuccess ? r.testCase.points : 0
           }))
         }
-      }));
+      };
+      
+      sessionStorage.setItem('contestSubmissions', JSON.stringify(updatedSubmissions));
       
       toast.success("Solution submitted successfully!");
       
@@ -323,39 +348,71 @@ const Contest = () => {
     }
   };
   
-  const handleEndContest = () => {
-    const results: Record<number, any> = {};
-    let totalScore = 0;
+  const handleEndContest = async () => {
+    if (!contestInfo || !userInfo) {
+      toast.error("Missing contest or user information");
+      navigate('/');
+      return;
+    }
     
-    const storedSubmissions = JSON.parse(sessionStorage.getItem('contestSubmissions') || '{}');
-    
-    questions.forEach(question => {
-      const submission = storedSubmissions[question.id];
+    try {
+      const results: Record<number, any> = {};
+      let totalScore = 0;
       
-      if (submission) {
-        results[question.id] = {
-          submitted: true,
-          score: submission.score || 0,
-          maxScore: question.testCases.reduce((sum: number, tc: any) => sum + (tc.points || 0), 0),
-          languageId: submission.languageId
-        };
-        totalScore += submission.score || 0;
-      } else {
-        results[question.id] = {
-          submitted: false,
-          score: 0,
-          maxScore: question.testCases.reduce((sum: number, tc: any) => sum + (tc.points || 0), 0)
-        };
-      }
-    });
-    
-    sessionStorage.setItem('contestResults', JSON.stringify({
-      totalScore,
-      questions: results,
-      completedAt: Date.now()
-    }));
-    
-    navigate('/summary');
+      const storedSubmissions = JSON.parse(sessionStorage.getItem('contestSubmissions') || '{}');
+      const submissionsArray = [];
+      
+      questions.forEach(question => {
+        const submission = storedSubmissions[question.id];
+        
+        if (submission) {
+          results[question.id] = {
+            submitted: true,
+            score: submission.score || 0,
+            maxScore: question.testCases.reduce((sum: number, tc: any) => sum + (tc.points || 0), 0),
+            languageId: submission.languageId,
+            testResults: submission.results
+          };
+          totalScore += submission.score || 0;
+          
+          submissionsArray.push({
+            questionId: question.id,
+            languageId: submission.languageId,
+            code: submission.code,
+            score: submission.score || 0
+          });
+        } else {
+          results[question.id] = {
+            submitted: false,
+            score: 0,
+            maxScore: question.testCases.reduce((sum: number, tc: any) => sum + (tc.points || 0), 0)
+          };
+        }
+      });
+      
+      const cheatingDetected = warningShown > 1;
+      
+      await saveContestResults(
+        contestInfo.id,
+        userInfo,
+        totalScore,
+        cheatingDetected,
+        submissionsArray
+      );
+      
+      sessionStorage.setItem('contestResults', JSON.stringify({
+        totalScore,
+        questions: results,
+        completedAt: Date.now(),
+        cheatingDetected
+      }));
+      
+      navigate('/summary');
+    } catch (error) {
+      console.error("Error ending contest:", error);
+      toast.error("Error saving contest results. Your results may not be properly recorded.");
+      navigate('/summary');
+    }
   };
   
   if (isLoading || timeLeft === null || !currentQuestion) {
@@ -374,7 +431,9 @@ const Contest = () => {
       <FullscreenAlert isActive={!isFullscreen} />
       
       <header className="bg-white border-b border-gray-100 h-16 flex items-center justify-between px-6 z-10">
-        <div className="text-lg font-semibold">Arena Contest</div>
+        <div className="text-lg font-semibold">
+          {contestInfo?.name || "Arena Contest"}
+        </div>
         
         <div className="flex items-center space-x-8">
           <div className="flex items-center">
