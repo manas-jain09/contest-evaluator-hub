@@ -11,6 +11,8 @@ interface CodeEditorProps {
   onSubmit: (code: string, languageId: number) => void;
   isProcessing: boolean;
   languageTemplates: Record<number, string>;
+  questionId: number; // Add questionId prop
+  onLanguageChange?: (languageId: number) => void; // Add callback for language changes
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({ 
@@ -18,7 +20,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   onRun, 
   onSubmit,
   isProcessing,
-  languageTemplates
+  languageTemplates,
+  questionId,
+  onLanguageChange
 }) => {
   const [code, setCode] = useState(initialCode);
   const [languageId, setLanguageId] = useState<number>(54); // Default to C++ (54)
@@ -31,7 +35,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   
   useEffect(() => {
     setCode(initialCode);
-  }, [initialCode]);
+  }, [initialCode, questionId]);
+  
+  const handleLanguageChange = (value: string) => {
+    const newLanguageId = Number(value);
+    setLanguageId(newLanguageId);
+    if (onLanguageChange) {
+      onLanguageChange(newLanguageId);
+    }
+  };
   
   const handleRun = () => {
     if (!code.trim()) {
@@ -56,7 +68,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         <div className="flex space-x-2">
           <Select 
             value={languageId.toString()} 
-            onValueChange={(value) => setLanguageId(Number(value))}
+            onValueChange={handleLanguageChange}
             disabled={isProcessing}
           >
             <SelectTrigger className="w-[120px] h-9">

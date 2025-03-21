@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
@@ -45,7 +46,8 @@ const Contest = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [submittedQuestions, setSubmittedQuestions] = useState<Record<number, boolean>>({});
-  const [languageTemplates, setLanguageTemplates] = useState<Record<number, string>>({});
+  const [questionTemplates, setQuestionTemplates] = useState<Record<number, Record<number, string>>>({});
+  const [selectedLanguages, setSelectedLanguages] = useState<Record<number, number>>({});
   const [questions, setQuestions] = useState<any[]>([]);
   const [contestInfo, setContestInfo] = useState<ContestInfo | null>(null);
   const [userInfo, setUserInfo] = useState<any>(null);
@@ -76,14 +78,35 @@ const Contest = () => {
         const fetchedQuestions = await fetchQuestionsByContest(contest.id);
         setQuestions(fetchedQuestions);
         
-        const templates = await getLanguageTemplates();
-        setLanguageTemplates(templates);
+        // Get default templates for all languages
+        const defaultTemplates = await getLanguageTemplates();
         
-        const initialCode: Record<number, string> = {};
-        fetchedQuestions.forEach((q) => {
-          initialCode[q.id] = templates[54] || '';
-        });
-        setUserCode(initialCode);
+        // Initialize data structures
+        const initialUserCode: Record<number, string> = {};
+        const initialSelectedLanguages: Record<number, number> = {};
+        const initialTemplates: Record<number, Record<number, string>> = {};
+        
+        // For each question, fetch its specific templates
+        await Promise.all(fetchedQuestions.map(async (q) => {
+          // Default to C++ (54) for all questions initially
+          initialSelectedLanguages[q.id] = 54;
+          
+          // Get question-specific templates
+          const questionSpecificTemplates = await getLanguageTemplates(q.id);
+          
+          // Merge default templates with question-specific ones, giving priority to question-specific
+          initialTemplates[q.id] = {
+            ...defaultTemplates,
+            ...questionSpecificTemplates
+          };
+          
+          // Set initial code for this question using the C++ template if available
+          initialUserCode[q.id] = initialTemplates[q.id][54] || defaultTemplates[54] || '';
+        }));
+        
+        setQuestionTemplates(initialTemplates);
+        setUserCode(initialUserCode);
+        setSelectedLanguages(initialSelectedLanguages);
         
         setIsLoading(false);
       } catch (error) {
@@ -140,6 +163,21 @@ const Contest = () => {
       ...prev,
       [questionId]: code
     }));
+  };
+  
+  const handleLanguageChange = (questionId: number, languageId: number) => {
+    setSelectedLanguages(prev => ({
+      ...prev,
+      [questionId]: languageId
+    }));
+    
+    // If we have a template for this language and question, update the code
+    if (questionTemplates[questionId] && questionTemplates[questionId][languageId]) {
+      setUserCode(prev => ({
+        ...prev,
+        [questionId]: questionTemplates[questionId][languageId]
+      }));
+    }
   };
   
   const handleRun = async (code: string, languageId: number) => {
@@ -547,11 +585,13 @@ const Contest = () => {
         
         <div className="w-1/2 contest-panel-right">
           <CodeEditor 
-            initialCode={userCode[currentQuestion.id] || languageTemplates[54] || ''}
+            initialCode={userCode[currentQuestion.id] || ''}
             onRun={handleRun}
             onSubmit={handleSubmit}
             isProcessing={isProcessing}
-            languageTemplates={languageTemplates}
+            languageTemplates={questionTemplates[currentQuestion.id] || {}}
+            questionId={currentQuestion.id}
+            onLanguageChange={(languageId) => handleLanguageChange(currentQuestion.id, languageId)}
           />
           
           <div className="mt-6">

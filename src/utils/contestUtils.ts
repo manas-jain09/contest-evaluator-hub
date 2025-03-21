@@ -1,3 +1,4 @@
+
 // Judge0 API endpoints
 const API_SUBMISSION_URL = "https://judge0.arenahq-mitwpu.in/submissions";
 
@@ -85,7 +86,7 @@ export async function getSubmissionResult(token: string): Promise<any> {
   }
 }
 
-// Get language templates from database
+// Get language templates from database - updated to fetch templates per question
 export const getLanguageTemplates = async (questionId?: number) => {
   let query = supabase
     .from('language_templates')
