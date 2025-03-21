@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,44 +7,44 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%; /* White */
-    --foreground: 0 0% 20%; /* Dark for contrast */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 20%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 20%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 0 84% 60%; /* Red */
-    --primary-foreground: 0 0% 100%; /* White */
+    --primary: 222 47% 11%;
+    --primary-foreground: 210 40% 98%;
 
-    --secondary: 0 0% 95%; /* Light Gray */
-    --secondary-foreground: 0 0% 20%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 0 0% 95%;
-    --muted-foreground: 0 0% 40%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 0 84% 50%; /* Slightly darker Red */
-    --accent-foreground: 0 0% 100%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 84% 40%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 0 84% 80%; /* Light Red */
-    --input: 0 84% 80%;
-    --ring: 0 84% 50%; /* Red */
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 84% 5%;
 
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 0 0% 20%;
-    --sidebar-primary: 0 84% 50%;
+    --sidebar-foreground: 240 5% 26%;
+    --sidebar-primary: 240 6% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 0 84% 90%;
-    --sidebar-accent-foreground: 0 0% 20%;
-    --sidebar-border: 0 84% 80%;
-    --sidebar-ring: 0 84% 60%;
+    --sidebar-accent: 240 5% 96%;
+    --sidebar-accent-foreground: 240 6% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217 91% 60%;
   }
 }
 
@@ -68,11 +69,11 @@
   }
   
   ::-webkit-scrollbar-thumb {
-    @apply bg-primary/50 rounded-full;
+    @apply bg-muted rounded-full;
   }
   
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-primary/70;
+    @apply bg-muted-foreground/30;
   }
 }
 
@@ -106,7 +107,7 @@
   }
   
   .form-input-highlight {
-    @apply transition-all duration-300 ease-in-out border-transparent focus:border-primary/50 focus:ring-2 focus:ring-primary/30;
+    @apply transition-all duration-300 ease-in-out border-transparent focus:border-primary/30 focus:ring-2 focus:ring-primary/10;
   }
   
   .question-card {
@@ -118,11 +119,11 @@
   }
   
   .test-case-success {
-    @apply border-primary/20 bg-primary/5;
+    @apply border-contest-green/20 bg-contest-green/5;
   }
   
   .test-case-error {
-    @apply border-destructive/20 bg-destructive/5;
+    @apply border-contest-red/20 bg-contest-red/5;
   }
 }
 
