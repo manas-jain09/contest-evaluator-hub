@@ -77,7 +77,7 @@ const Summary = () => {
           // If no results but we're on the summary page, 
           // either contest was terminated or user navigated here directly
           if (!isTerminated) {
-            navigate('/');
+            navigate('arenahq.mitwpu.in/home');
           }
         }
       } catch (error) {
@@ -107,7 +107,7 @@ const Summary = () => {
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-4">Session Expired</h1>
           <p className="text-muted-foreground mb-6">Your session has expired or you haven't participated in the contest yet.</p>
-          <Button onClick={() => navigate('/')} className="bg-contest-blue text-white hover:bg-contest-blue/90">
+          <Button onClick={() => navigate('arenahq.mitwpu.in/home')} className="bg-contest-blue text-white hover:bg-contest-blue/90">
             Go to Homepage
           </Button>
         </div>
@@ -121,7 +121,7 @@ const Summary = () => {
         <div className="container mx-auto py-4 px-6">
           <div className="flex justify-between items-center">
             <div className="text-xl font-semibold">{contestInfo.name}</div>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <Button variant="ghost" size="sm" onClick={() => navigate('arenahq.mitwpu.in/home')}>
               <Home className="h-4 w-4 mr-2" />
               Home
             </Button>
