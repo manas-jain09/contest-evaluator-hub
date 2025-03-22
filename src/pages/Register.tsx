@@ -106,6 +106,10 @@ const Register = () => {
         <div className="container mx-auto py-4 px-6">
           <div className="flex justify-between items-center">
             <div className="text-xl font-semibold">Arena Contest</div>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Home
+            </Button>
           </div>
         </div>
       </header>
