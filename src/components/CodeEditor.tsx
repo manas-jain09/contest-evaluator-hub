@@ -93,7 +93,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
             size="sm"
             onClick={handleSubmit}
             disabled={isProcessing}
-            className="bg-contest-blue text-white hover:bg-contest-blue/90"
+            className="bg-contest-red text-white hover:bg-contest-red/90"
           >
             Submit
           </Button>
