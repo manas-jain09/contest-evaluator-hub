@@ -105,8 +105,8 @@ const Register = () => {
       <header className="border-b border-gray-100 bg-white">
         <div className="container mx-auto py-4 px-6">
           <div className="flex justify-between items-center">
-            <div className="text-xl font-semibold">Arena Contest</div>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <div className="text-xl font-semibold">ArenaContest</div>
+            <Button variant="ghost" size="sm" onClick={() => (window.location.href = 'https://arenahq-mitwpu.in/home')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Home
             </Button>
@@ -117,9 +117,9 @@ const Register = () => {
       <main className="flex-grow flex items-center justify-center p-6 animate-fade-in">
         <div className="max-w-md w-full">
           <div className="space-y-4 text-center mb-6">
-            <h1 className="text-2xl font-bold">Registration</h1>
+            <h1 className="text-2xl font-bold">Join Contest</h1>
             <p className="text-muted-foreground">
-              Please complete the registration form to participate in the contest.
+              Enter your details to start the contest
             </p>
           </div>
           
@@ -221,8 +221,8 @@ const Register = () => {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center">
-                    <span>Continue to Instructions</span>
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    <span>Continue</span>
+                    
                   </div>
                 )}
               </Button>
