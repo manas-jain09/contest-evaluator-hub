@@ -211,7 +211,7 @@ const Register = () => {
               
               <Button 
                 type="submit" 
-                className="w-full bg-contest-blue text-white hover:bg-contest-blue/90 transition-colors mt-6"
+                className="w-full bg-contest-red text-white hover:bg-contest-red/90 transition-colors mt-6"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
