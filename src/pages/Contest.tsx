@@ -476,7 +476,7 @@ const Contest = () => {
         <div className="flex items-center space-x-8">
           <div className="flex items-center">
             <span className="text-sm text-muted-foreground mr-2">Time Remaining:</span>
-            <div className={`font-mono text-sm font-medium rounded px-2 py-1 flex items-center ${timeLeft < 5 * 60 * 1000 ? 'bg-contest-red/10 text-contest-red' : 'bg-blue-50 text-contest-blue'}`}>
+            <div className={`font-mono text-sm font-medium rounded px-2 py-1 flex items-center ${timeLeft < 5 * 60 * 1000 ? 'bg-contest-red/10 text-contest-red' : 'bg-red-50 text-contest-red'}`}>
               <Clock className="h-3.5 w-3.5 mr-1.5" />
               {formatTime(timeLeft)}
             </div>
@@ -497,7 +497,7 @@ const Contest = () => {
         <div className="w-1/2 contest-panel-left">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
-              <span className="bg-contest-blue/10 text-contest-blue text-xs font-medium px-2 py-1 rounded mr-2">
+              <span className="bg-contest-red/10 text-contest-red text-xs font-medium px-2 py-1 rounded mr-2">
                 Question {currentQuestionIndex + 1}/{questions.length}
               </span>
               {submittedQuestions[currentQuestion.id] && (
@@ -598,8 +598,8 @@ const Contest = () => {
             <h3 className="text-lg font-medium mb-3">Test Results</h3>
             
             {isProcessing && (
-              <div className="bg-blue-50 rounded-md p-4 flex items-center text-contest-blue mb-3">
-                <div className="h-4 w-4 rounded-full border-2 border-contest-blue/30 border-t-contest-blue animate-spin mr-3"></div>
+              <div className="bg-red-50 rounded-md p-4 flex items-center text-contest-red mb-3">
+                <div className="h-4 w-4 rounded-full border-2 border-contest-red/30 border-t-contest-red animate-spin mr-3"></div>
                 <p className="text-sm">Evaluating your solution...</p>
               </div>
             )}
