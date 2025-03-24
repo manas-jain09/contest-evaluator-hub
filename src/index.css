@@ -7,44 +7,44 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 72% 15%; /* Dark Red */
+     --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 72% 15%; /* Dark Red */
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 72% 15%; /* Dark Red */
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 0 72% 15%; /* Dark Red */
-    --primary-foreground: 0 80% 98%; /* Very Light Red */
+    --primary: 222 47% 11%;
+    --primary-foreground: 210 40% 98%;
 
-    --secondary: 0 80% 96%; /* Soft Pink */
-    --secondary-foreground: 0 72% 15%; /* Dark Red */
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 0 80% 96%; /* Soft Pink */
-    --muted-foreground: 0 50% 50%; /* Muted Red */
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 0 80% 96%; /* Soft Pink */
-    --accent-foreground: 0 72% 15%; /* Dark Red */
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11%;
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 0 80% 98%; /* Very Light Red */
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 0 50% 85%; /* Light Red */
-    --input: 0 50% 85%; /* Light Red */
-    --ring: 0 84% 10%; /* Deep Red */
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 222 84% 5%;
 
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 0 10% 26%; /* Darker Red */
-    --sidebar-primary: 0 15% 10%; /* Deep Red */
+    --sidebar-foreground: 240 5% 26%;
+    --sidebar-primary: 240 6% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 0 10% 96%;
-    --sidebar-accent-foreground: 0 15% 10%; /* Deep Red */
-    --sidebar-border: 0 20% 91%; /* Light Red */
-    --sidebar-ring: 0 91% 60%; /* Strong Red */
+    --sidebar-accent: 240 5% 96%;
+    --sidebar-accent-foreground: 240 6% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217 91% 60%;
   }
 }
 
