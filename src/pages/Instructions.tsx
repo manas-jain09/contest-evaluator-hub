@@ -100,8 +100,8 @@ const Instructions = () => {
           </div>
           
           <div className="bg-white rounded-xl p-6 shadow-subtle border border-gray-100 space-y-6">
-            <div className="flex items-center space-x-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-              <ClockIcon className="h-8 w-8 text-contest-blue" />
+            <div className="flex items-center space-x-4 p-4 bg-red-50 rounded-lg border border-red-100">
+              <ClockIcon className="h-8 w-8 text-contest-red" />
               <div>
                 <h3 className="font-semibold">Contest Duration: {contestInfo.duration_mins} minutes</h3>
                 <p className="text-sm text-muted-foreground">The timer starts once you click the "Begin Contest" button.</p>
@@ -190,11 +190,11 @@ const Instructions = () => {
             
             <Button 
               onClick={handleStartContest}
-              className="w-full bg-contest-blue text-white hover:bg-contest-blue/90 transition-colors"
+              className="w-full bg-contest-red text-white hover:bg-contest-red/90 transition-colors"
               disabled={!accepted}
             >
-              Begin Contest
-              <ArrowRight className="ml-2 h-4 w-4" />
+              Start Contest
+           
             </Button>
           </div>
         </div>
