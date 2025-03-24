@@ -40,9 +40,9 @@ const TestCaseResult: React.FC<TestCaseResultProps> = ({
       className: 'test-case-error'
     },
     processing: {
-      icon: <Clock className="h-5 w-5 text-contest-blue animate-pulse" />,
+      icon: <Clock className="h-5 w-5 text-contest-red animate-pulse" />,
       text: 'Processing',
-      textColor: 'text-contest-blue',
+      textColor: 'text-contest-red',
       className: ''
     },
     waiting: {
