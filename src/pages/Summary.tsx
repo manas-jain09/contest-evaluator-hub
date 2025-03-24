@@ -121,7 +121,7 @@ const Summary = () => {
         <div className="container mx-auto py-4 px-6">
           <div className="flex justify-between items-center">
             <div className="text-xl font-semibold">{contestInfo.name}</div>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <Button variant="ghost" size="sm" onClick={() => (window.location.href = 'https://arenahq-mitwpu.in/home')}>
               <Home className="h-4 w-4 mr-2" />
               Home
             </Button>
