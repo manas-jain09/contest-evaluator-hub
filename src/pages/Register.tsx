@@ -115,15 +115,14 @@ const Register = () => {
       </header>
       
       <main className="flex-grow flex items-center justify-center p-6 animate-fade-in">
-        <div className="max-w-md w-full">
-          <div className="space-y-4 text-center mb-6">
+        <div className="max-w-md w-full">    
+          <div className="bg-white rounded-xl p-6 shadow-subtle border border-gray-100">
+            <div className="space-y-4 text-center mb-6">
             <h1 className="text-2xl font-bold">Join Contest</h1>
             <p className="text-muted-foreground">
               Enter your details to start the contest
             </p>
           </div>
-          
-          <div className="bg-white rounded-xl p-6 shadow-subtle border border-gray-100">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
