@@ -102,7 +102,7 @@ const Register = () => {
   
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b border-gray-100 bg-white">
+      <header className="bg-white">
         <div className="container mx-auto py-4 px-6">
           <div className="flex justify-between items-center">
            <div className="text-xl font-semibold text-red-500">
