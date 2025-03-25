@@ -105,7 +105,7 @@ const Register = () => {
       <header className="bg-white">
         <div className="container mx-auto py-4 px-6">
           <div className="flex justify-between items-center">
-           <div className="text-xl font-bold text-red-500">
+           <div className="font-bold text-red-500">
               <h1>ArenaContest</h1>
           </div>
 
