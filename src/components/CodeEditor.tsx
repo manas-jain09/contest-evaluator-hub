@@ -72,7 +72,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       const end = target.selectionEnd;
       
       // Insert tab at cursor position
-      const newCode = code.substring(0, start) + '  ' + code.substring(end);
+      const newCode = code.substring(0, start) + '    ' + code.substring(end);
       setCode(newCode);
       
       // Move cursor after the inserted tab
