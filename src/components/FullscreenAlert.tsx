@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFullscreen } from '@/hooks/useFullscreen';
@@ -9,9 +9,9 @@ interface FullscreenAlertProps {
 }
 
 const FullscreenAlert: React.FC<FullscreenAlertProps> = ({ isActive }) => {
-  const { enterFullscreen, warningShown } = useFullscreen();
+  const { enterFullscreen, fullscreenExitCount } = useFullscreen();
   
-  if (!isActive || !warningShown) return null;
+  if (!isActive) return null;
   
   return (
     <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 animate-fade-in">
@@ -21,7 +21,9 @@ const FullscreenAlert: React.FC<FullscreenAlertProps> = ({ isActive }) => {
           <div>
             <h3 className="font-semibold text-lg">Fullscreen Mode Required</h3>
             <p className="text-muted-foreground mt-2">
-              The contest requires fullscreen mode. Exiting fullscreen for more than 30 seconds will terminate your contest.
+              {fullscreenExitCount === 0 
+                ? "The contest requires fullscreen mode. Exiting fullscreen for more than 30 seconds will terminate your contest."
+                : "Warning: You have exited fullscreen once. Exiting again or staying out of fullscreen for more than 30 seconds will terminate your contest."}
             </p>
           </div>
         </div>
