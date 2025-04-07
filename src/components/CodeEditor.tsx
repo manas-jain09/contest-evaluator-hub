@@ -77,7 +77,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       
       // Move cursor after the inserted tab
       setTimeout(() => {
-        target.selectionStart = target.selectionEnd = start + 2;
+        target.selectionStart = target.selectionEnd = start + 4;
       }, 0);
     }
   };
