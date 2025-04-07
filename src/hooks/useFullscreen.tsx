@@ -63,6 +63,7 @@ export function useFullscreen() {
           return;
         }
         
+        // Record when the user exited fullscreen
         setExitStartTime(Date.now());
           
         toast.warning("Please return to fullscreen mode to continue the contest", {
@@ -79,7 +80,7 @@ export function useFullscreen() {
             toast.error("Contest terminated due to fullscreen violation.", {
               duration: Infinity,
             });
-            // Redirect to summary with special termination flag
+            // Redirect to summary with termination flag
             window.location.href = "/summary?terminated=true";
           }
         }, 30000);
@@ -89,6 +90,7 @@ export function useFullscreen() {
         // User returned to fullscreen, clear warning state
         setExitStartTime(null);
         
+        // Clear timeout if it exists
         if (timeoutFullscreenExit) {
           clearTimeout(timeoutFullscreenExit);
           setTimeoutFullscreenExit(null);
