@@ -1,10 +1,9 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from "@/utils/toast";
 
 export function useFullscreen() {
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [fullscreenExitCount, setFullscreenExitCount] = useState(0);
+  const [warningShown, setWarningShown] = useState(false);
   const [timeoutFullscreenExit, setTimeoutFullscreenExit] = useState<NodeJS.Timeout | null>(null);
   const [exitStartTime, setExitStartTime] = useState<number | null>(null);
   
@@ -50,47 +49,40 @@ export function useFullscreen() {
       
       // If the user exits fullscreen without using our controls
       if (!isCurrentlyFullscreen) {
-        // Increment the fullscreen exit count
-        setFullscreenExitCount(prev => prev + 1);
-        
-        // If this is the second exit, terminate the contest immediately
-        if (fullscreenExitCount >= 1) {
-          toast.error("Contest terminated due to multiple fullscreen violations.", {
-            duration: Infinity,
+        // First time warning, or after a previous warning was handled
+        if (!warningShown) {
+          setWarningShown(true);
+          setExitStartTime(Date.now());
+          
+          toast.warning("Please return to fullscreen mode to continue the contest", {
+            duration: 5000,
+            action: {
+              label: "Return to Fullscreen",
+              onClick: enterFullscreen,
+            },
           });
-          // Redirect to summary with termination flag
-          window.location.href = "/summary?terminated=true";
-          return;
+          
+          // Set timeout to check if user hasn't returned to fullscreen
+          const timeout = setTimeout(() => {
+            if (!document.fullscreenElement) {
+              // If they've been out of fullscreen for 30+ seconds
+              if (exitStartTime && Date.now() - exitStartTime >= 30000) {
+                toast.error("Contest terminated due to fullscreen violation.", {
+                  duration: Infinity,
+                });
+                // Redirect to summary with special termination flag
+                window.location.href = "/summary?terminated=true";
+              }
+            }
+          }, 30000);
+          
+          setTimeoutFullscreenExit(timeout);
         }
-        
-        // Record when the user exited fullscreen
-        setExitStartTime(Date.now());
-          
-        toast.warning("Please return to fullscreen mode to continue the contest", {
-          duration: 5000,
-          action: {
-            label: "Return to Fullscreen",
-            onClick: enterFullscreen,
-          },
-        });
-          
-        // Set timeout to check if user hasn't returned to fullscreen within 30 seconds
-        const timeout = setTimeout(() => {
-          if (!document.fullscreenElement) {
-            toast.error("Contest terminated due to fullscreen violation.", {
-              duration: Infinity,
-            });
-            // Redirect to summary with termination flag
-            window.location.href = "/summary?terminated=true";
-          }
-        }, 30000);
-          
-        setTimeoutFullscreenExit(timeout);
       } else {
         // User returned to fullscreen, clear warning state
+        setWarningShown(false);
         setExitStartTime(null);
         
-        // Clear timeout if it exists
         if (timeoutFullscreenExit) {
           clearTimeout(timeoutFullscreenExit);
           setTimeoutFullscreenExit(null);
@@ -107,14 +99,13 @@ export function useFullscreen() {
         clearTimeout(timeoutFullscreenExit);
       }
     };
-  }, [fullscreenExitCount, enterFullscreen, timeoutFullscreenExit]);
+  }, [warningShown, exitStartTime, timeoutFullscreenExit, enterFullscreen]);
   
   return {
     isFullscreen,
     enterFullscreen,
     exitFullscreen,
     toggleFullscreen,
-    fullscreenExitCount,
-    warningShown: fullscreenExitCount // Expose fullscreenExitCount as warningShown for backward compatibility
+    warningShown
   };
 }

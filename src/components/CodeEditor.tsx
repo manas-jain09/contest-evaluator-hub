@@ -61,27 +61,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     onSubmit(code, languageId);
   };
   
-  // Handle tab key in the textarea
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      
-      // Get cursor position
-      const target = e.target as HTMLTextAreaElement;
-      const start = target.selectionStart;
-      const end = target.selectionEnd;
-      
-      // Insert tab at cursor position
-      const newCode = code.substring(0, start) + '\t' + code.substring(end);
-      setCode(newCode);
-      
-      // Move cursor after the tab
-      setTimeout(() => {
-        target.selectionStart = target.selectionEnd = start + 1;
-      }, 0);
-    }
-  };
-  
   return (
     <div className="flex flex-col h-full">
       <div className="flex justify-between items-center mb-3">
@@ -125,11 +104,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         <textarea
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          onKeyDown={handleKeyDown}
           className="font-mono text-sm absolute inset-0 w-full h-full p-4 resize-none outline-none focus:ring-1 focus:ring-primary/20 bg-gray-50"
           placeholder="Write your solution here..."
           disabled={isProcessing}
-          spellCheck={false}
         />
       </div>
     </div>
