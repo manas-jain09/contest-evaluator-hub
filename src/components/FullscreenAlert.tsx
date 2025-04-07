@@ -9,7 +9,7 @@ interface FullscreenAlertProps {
 }
 
 const FullscreenAlert: React.FC<FullscreenAlertProps> = ({ isActive }) => {
-  const { enterFullscreen, fullscreenExitCount } = useFullscreen();
+  const { enterFullscreen, warningShown } = useFullscreen();
   
   if (!isActive) return null;
   
@@ -21,7 +21,7 @@ const FullscreenAlert: React.FC<FullscreenAlertProps> = ({ isActive }) => {
           <div>
             <h3 className="font-semibold text-lg">Fullscreen Mode Required</h3>
             <p className="text-muted-foreground mt-2">
-              {fullscreenExitCount === 0 
+              {warningShown === 0 
                 ? "The contest requires fullscreen mode. Exiting fullscreen for more than 30 seconds will terminate your contest."
                 : "Warning: You have exited fullscreen once. Exiting again or staying out of fullscreen for more than 30 seconds will terminate your contest."}
             </p>

@@ -112,6 +112,7 @@ export function useFullscreen() {
     enterFullscreen,
     exitFullscreen,
     toggleFullscreen,
-    fullscreenExitCount
+    fullscreenExitCount,
+    warningShown: fullscreenExitCount // Expose fullscreenExitCount as warningShown for backward compatibility
   };
 }
