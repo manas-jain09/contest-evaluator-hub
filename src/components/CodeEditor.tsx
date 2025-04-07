@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, KeyboardEvent } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/utils/toast';
@@ -11,8 +11,8 @@ interface CodeEditorProps {
   onSubmit: (code: string, languageId: number) => void;
   isProcessing: boolean;
   languageTemplates: Record<number, string>;
-  questionId: number;
-  onLanguageChange?: (languageId: number) => void;
+  questionId: number; // Add questionId prop
+  onLanguageChange?: (languageId: number) => void; // Add callback for language changes
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({ 
@@ -60,27 +60,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     }
     onSubmit(code, languageId);
   };
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Handle tab key press
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      
-      // Get cursor position
-      const target = e.target as HTMLTextAreaElement;
-      const start = target.selectionStart;
-      const end = target.selectionEnd;
-      
-      // Insert tab at cursor position
-      const newCode = code.substring(0, start) + '    ' + code.substring(end);
-      setCode(newCode);
-      
-      // Move cursor after the inserted tab
-      setTimeout(() => {
-        target.selectionStart = target.selectionEnd = start + 4;
-      }, 0);
-    }
-  };
   
   return (
     <div className="flex flex-col h-full">
@@ -125,13 +104,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         <textarea
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          onKeyDown={handleKeyDown}
           className="font-mono text-sm absolute inset-0 w-full h-full p-4 resize-none outline-none focus:ring-1 focus:ring-primary/20 bg-gray-50"
           placeholder="Write your solution here..."
           disabled={isProcessing}
-          spellCheck={false}
-          autoCorrect="off"
-          autoCapitalize="off"
         />
       </div>
     </div>
