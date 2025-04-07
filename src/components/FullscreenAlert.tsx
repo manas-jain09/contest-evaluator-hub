@@ -11,6 +11,7 @@ interface FullscreenAlertProps {
 const FullscreenAlert: React.FC<FullscreenAlertProps> = ({ isActive }) => {
   const { enterFullscreen, warningShown } = useFullscreen();
   
+  // Don't render anything if not active (user is in fullscreen)
   if (!isActive) return null;
   
   return (

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
@@ -39,7 +38,7 @@ interface ContestInfo {
 
 const Contest = () => {
   const navigate = useNavigate();
-  const { isFullscreen, warningShown } = useFullscreen();
+  const { isFullscreen, enterFullscreen, warningShown } = useFullscreen();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userCode, setUserCode] = useState<Record<number, string>>({});
   const [testResults, setTestResults] = useState<Record<number, TestResult[]>>({});
@@ -78,35 +77,30 @@ const Contest = () => {
         const fetchedQuestions = await fetchQuestionsByContest(contest.id);
         setQuestions(fetchedQuestions);
         
-        // Get default templates for all languages
         const defaultTemplates = await getLanguageTemplates();
         
-        // Initialize data structures
         const initialUserCode: Record<number, string> = {};
         const initialSelectedLanguages: Record<number, number> = {};
         const initialTemplates: Record<number, Record<number, string>> = {};
         
-        // For each question, fetch its specific templates
         await Promise.all(fetchedQuestions.map(async (q) => {
-          // Default to C++ (54) for all questions initially
           initialSelectedLanguages[q.id] = 54;
           
-          // Get question-specific templates
           const questionSpecificTemplates = await getLanguageTemplates(q.id);
           
-          // Merge default templates with question-specific ones, giving priority to question-specific
           initialTemplates[q.id] = {
             ...defaultTemplates,
             ...questionSpecificTemplates
           };
           
-          // Set initial code for this question using the C++ template if available
           initialUserCode[q.id] = initialTemplates[q.id][54] || defaultTemplates[54] || '';
         }));
         
         setQuestionTemplates(initialTemplates);
         setUserCode(initialUserCode);
         setSelectedLanguages(initialSelectedLanguages);
+        
+        enterFullscreen();
         
         setIsLoading(false);
       } catch (error) {
@@ -117,7 +111,7 @@ const Contest = () => {
     };
     
     fetchData();
-  }, [navigate]);
+  }, [navigate, enterFullscreen]);
   
   useEffect(() => {
     if (!contestInfo) return;
@@ -171,7 +165,6 @@ const Contest = () => {
       [questionId]: languageId
     }));
     
-    // If we have a template for this language and question, update the code
     if (questionTemplates[questionId] && questionTemplates[questionId][languageId]) {
       setUserCode(prev => ({
         ...prev,
@@ -428,7 +421,7 @@ const Contest = () => {
         }
       });
       
-      const cheatingDetected = warningShown > 1;
+      const cheatingDetected = warningShown > 0;
       
       await saveContestResults(
         contestInfo.id,
