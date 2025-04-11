@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -8,13 +8,18 @@ import { toast } from '@/utils/toast';
 import CodeEditor from '@/components/CodeEditor';
 import TestCaseResult from '@/components/TestCaseResult';
 import FullscreenAlert from '@/components/FullscreenAlert';
+import ResultsDialog from '@/components/ResultsDialog';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { 
   fetchQuestionsByContest,
+  fetchContestByCode,
   submitCode, 
   getSubmissionResult, 
   getLanguageTemplates,
-  saveContestResults
+  saveContestResults,
+  isPracticeContest,
+  savePracticeProgress,
+  loadPracticeProgress
 } from '@/utils/contestUtils';
 
 type TestResult = {
@@ -35,11 +40,14 @@ interface ContestInfo {
   contest_code: string;
   start_date: string;
   end_date: string;
+  type: 'assessment' | 'practice';
+  public_access: boolean;
 }
 
 const Contest = () => {
   const navigate = useNavigate();
-  const { isFullscreen, warningShown } = useFullscreen();
+  const { contestCode } = useParams();
+  const { isFullscreen, warningShown, enterFullscreen } = useFullscreen();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userCode, setUserCode] = useState<Record<number, string>>({});
   const [testResults, setTestResults] = useState<Record<number, TestResult[]>>({});
@@ -52,14 +60,116 @@ const Contest = () => {
   const [contestInfo, setContestInfo] = useState<ContestInfo | null>(null);
   const [userInfo, setUserInfo] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPractice, setIsPractice] = useState(false);
+  const [resultsDialogOpen, setResultsDialogOpen] = useState(false);
+  const [practiceResults, setPracticeResults] = useState<{
+    results: TestResult[],
+    score: number,
+    maxScore: number
+  }>({
+    results: [],
+    score: 0,
+    maxScore: 0
+  });
   
   const currentQuestion = questions[currentQuestionIndex];
+
+  // Auto-save timer for practice mode
+  useEffect(() => {
+    if (!isPractice || !currentQuestion || !contestInfo) return;
+    
+    const autoSaveInterval = setInterval(() => {
+      const currentCode = userCode[currentQuestion.id];
+      const currentLanguage = selectedLanguages[currentQuestion.id];
+      
+      if (currentCode && currentLanguage) {
+        savePracticeProgress(contestInfo.id, currentCode, currentLanguage);
+      }
+    }, 30000); // Auto-save every 30 seconds
+    
+    return () => clearInterval(autoSaveInterval);
+  }, [isPractice, currentQuestion, contestInfo, userCode, selectedLanguages]);
   
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         
+        // Handle practice contest from URL
+        if (contestCode) {
+          // Try to fetch contest from URL parameter
+          try {
+            const contest = await fetchContestByCode(contestCode);
+            
+            if (!contest || !contest.public_access) {
+              toast.error("Contest not found or not publicly accessible");
+              navigate('/register');
+              return;
+            }
+            
+            setContestInfo(contest);
+            const isPracticeMode = contest.type === 'practice';
+            setIsPractice(isPracticeMode);
+            
+            // Fetch questions for this contest
+            const fetchedQuestions = await fetchQuestionsByContest(contest.id);
+            setQuestions(fetchedQuestions);
+            
+            // Get default templates
+            const defaultTemplates = await getLanguageTemplates();
+            
+            // Initialize data structures
+            const initialUserCode: Record<number, string> = {};
+            const initialSelectedLanguages: Record<number, number> = {};
+            const initialTemplates: Record<number, Record<number, string>> = {};
+            
+            // For each question, fetch its specific templates
+            await Promise.all(fetchedQuestions.map(async (q) => {
+              // Default to C++ (54) for all questions initially
+              let languageId = 54;
+              initialSelectedLanguages[q.id] = languageId;
+              
+              // Get question-specific templates
+              const questionSpecificTemplates = await getLanguageTemplates(q.id);
+              
+              // Merge default templates with question-specific ones, giving priority to question-specific
+              initialTemplates[q.id] = {
+                ...defaultTemplates,
+                ...questionSpecificTemplates
+              };
+              
+              // For practice mode, check if there's saved progress
+              if (isPracticeMode) {
+                const progress = await loadPracticeProgress(contest.id);
+                if (progress.code && progress.languageId) {
+                  initialUserCode[q.id] = progress.code;
+                  initialSelectedLanguages[q.id] = progress.languageId;
+                  languageId = progress.languageId;
+                } else {
+                  // Set initial code for this question using the template
+                  initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
+                }
+              } else {
+                // Set initial code for this question using the template
+                initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
+              }
+            }));
+            
+            setQuestionTemplates(initialTemplates);
+            setUserCode(initialUserCode);
+            setSelectedLanguages(initialSelectedLanguages);
+            
+            setIsLoading(false);
+            return;
+          } catch (error) {
+            console.error("Error fetching contest from URL:", error);
+            toast.error("Invalid contest code in URL");
+            navigate('/register');
+            return;
+          }
+        }
+        
+        // Regular assessment contest flow
         const userData = sessionStorage.getItem('contestUser');
         const contestData = sessionStorage.getItem('contestInfo');
         
@@ -75,6 +185,10 @@ const Contest = () => {
         setUserInfo(user);
         setContestInfo(contest);
         
+        // Check if this is a practice contest
+        const practiceMode = await isPracticeContest(contest.id);
+        setIsPractice(practiceMode);
+        
         const fetchedQuestions = await fetchQuestionsByContest(contest.id);
         setQuestions(fetchedQuestions);
         
@@ -89,7 +203,8 @@ const Contest = () => {
         // For each question, fetch its specific templates
         await Promise.all(fetchedQuestions.map(async (q) => {
           // Default to C++ (54) for all questions initially
-          initialSelectedLanguages[q.id] = 54;
+          let languageId = 54;
+          initialSelectedLanguages[q.id] = languageId;
           
           // Get question-specific templates
           const questionSpecificTemplates = await getLanguageTemplates(q.id);
@@ -100,8 +215,21 @@ const Contest = () => {
             ...questionSpecificTemplates
           };
           
-          // Set initial code for this question using the C++ template if available
-          initialUserCode[q.id] = initialTemplates[q.id][54] || defaultTemplates[54] || '';
+          // For practice mode, check if there's saved progress
+          if (practiceMode) {
+            const progress = await loadPracticeProgress(contest.id);
+            if (progress.code && progress.languageId) {
+              initialUserCode[q.id] = progress.code;
+              initialSelectedLanguages[q.id] = progress.languageId;
+              languageId = progress.languageId;
+            } else {
+              // Set initial code for this question using the template
+              initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
+            }
+          } else {
+            // Set initial code for this question using the template
+            initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
+          }
         }));
         
         setQuestionTemplates(initialTemplates);
@@ -117,10 +245,15 @@ const Contest = () => {
     };
     
     fetchData();
-  }, [navigate]);
+  }, [navigate, contestCode]);
   
   useEffect(() => {
-    if (!contestInfo) return;
+    if (!contestInfo || isPractice) return;
+    
+    // For assessment contests, enter fullscreen
+    if (document.documentElement.requestFullscreen && !isFullscreen) {
+      enterFullscreen();
+    }
     
     const startTime = sessionStorage.getItem('contestStartTime');
     
@@ -149,7 +282,7 @@ const Contest = () => {
     }, 1000);
     
     return () => clearInterval(interval);
-  }, [contestInfo, navigate]);
+  }, [contestInfo, navigate, isPractice, isFullscreen, enterFullscreen]);
   
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -163,6 +296,11 @@ const Contest = () => {
       ...prev,
       [questionId]: code
     }));
+    
+    // Auto-save for practice mode
+    if (isPractice && contestInfo) {
+      savePracticeProgress(contestInfo.id, code, selectedLanguages[questionId] || 54);
+    }
   };
   
   const handleLanguageChange = (questionId: number, languageId: number) => {
@@ -335,36 +473,74 @@ const Contest = () => {
       const score = results.reduce((total, { testCase, isSuccess }) => {
         return total + (isSuccess ? (testCase.points || 0) : 0);
       }, 0);
+
+      const maxScore = allTestCases.reduce((total, tc: any) => total + (tc.points || 0), 0);
       
-      setSubmittedQuestions(prev => ({
-        ...prev,
-        [currentQuestion.id]: true
-      }));
-      
-      const storedSubmissions = JSON.parse(sessionStorage.getItem('contestSubmissions') || '{}');
-      const updatedSubmissions = {
-        ...storedSubmissions,
-        [currentQuestion.id]: {
-          code,
-          languageId,
-          timestamp: Date.now(),
+      if (isPractice) {
+        // For practice mode, show results dialog
+        const formattedResults = results.map((r, idx) => ({
+          index: idx + 1,
+          status: r.isSuccess ? 'success' as const : 'error' as const,
+          input: r.testCase.input,
+          expected: r.testCase.expected,
+          output: r.result?.stdout || r.result?.stderr || r.result?.compile_output,
+          points: r.testCase.points,
+          visible: r.testCase.visible
+        }));
+        
+        setPracticeResults({
+          results: formattedResults,
           score,
-          results: results.map(r => ({
-            testCaseId: r.testCase.input,
-            passed: r.isSuccess,
-            points: r.isSuccess ? r.testCase.points : 0
-          }))
+          maxScore
+        });
+        
+        setResultsDialogOpen(true);
+        
+        // Save the submission
+        await saveContestResults(
+          contestInfo.id,
+          null, // No user info for practice
+          score,
+          false, // No cheating for practice
+          [{
+            questionId: currentQuestion.id,
+            languageId,
+            code,
+            score
+          }]
+        );
+      } else {
+        // For assessment mode
+        setSubmittedQuestions(prev => ({
+          ...prev,
+          [currentQuestion.id]: true
+        }));
+        
+        const storedSubmissions = JSON.parse(sessionStorage.getItem('contestSubmissions') || '{}');
+        const updatedSubmissions = {
+          ...storedSubmissions,
+          [currentQuestion.id]: {
+            code,
+            languageId,
+            timestamp: Date.now(),
+            score,
+            results: results.map(r => ({
+              testCaseId: r.testCase.input,
+              passed: r.isSuccess,
+              points: r.isSuccess ? r.testCase.points : 0
+            }))
+          }
+        };
+        
+        sessionStorage.setItem('contestSubmissions', JSON.stringify(updatedSubmissions));
+        
+        toast.success("Solution submitted successfully!");
+        
+        if (currentQuestionIndex < questions.length - 1) {
+          setTimeout(() => {
+            setCurrentQuestionIndex(currentQuestionIndex + 1);
+          }, 1000);
         }
-      };
-      
-      sessionStorage.setItem('contestSubmissions', JSON.stringify(updatedSubmissions));
-      
-      toast.success("Solution submitted successfully!");
-      
-      if (currentQuestionIndex < questions.length - 1) {
-        setTimeout(() => {
-          setCurrentQuestionIndex(currentQuestionIndex + 1);
-        }, 1000);
       }
     } catch (error) {
       console.error("Error submitting solution:", error);
@@ -387,11 +563,14 @@ const Contest = () => {
   };
   
   const handleEndContest = async () => {
-    if (!contestInfo || !userInfo) {
-      toast.error("Missing contest or user information");
+    if (!contestInfo) {
+      toast.error("Missing contest information");
       navigate('/');
       return;
     }
+    
+    // Only for assessment contests
+    if (isPractice) return;
     
     try {
       const results: Record<number, any> = {};
@@ -430,13 +609,15 @@ const Contest = () => {
       
       const cheatingDetected = warningShown > 1;
       
-      await saveContestResults(
-        contestInfo.id,
-        userInfo,
-        totalScore,
-        cheatingDetected,
-        submissionsArray
-      );
+      if (userInfo) {
+        await saveContestResults(
+          contestInfo.id,
+          userInfo,
+          totalScore,
+          cheatingDetected,
+          submissionsArray
+        );
+      }
       
       sessionStorage.setItem('contestResults', JSON.stringify({
         totalScore,
@@ -453,7 +634,7 @@ const Contest = () => {
     }
   };
   
-  if (isLoading || timeLeft === null || !currentQuestion) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center">
@@ -463,10 +644,29 @@ const Contest = () => {
       </div>
     );
   }
+
+  if (!currentQuestion) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-red-50 p-6 rounded-md max-w-md">
+          <h2 className="text-lg font-medium text-red-600 mb-2">No Questions Available</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            There are no questions available for this contest. Please contact the administrator.
+          </p>
+          <Button 
+            className="bg-contest-red hover:bg-contest-red/90"
+            onClick={() => navigate('/')}
+          >
+            Return to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen flex flex-col">
-      <FullscreenAlert isActive={!isFullscreen} />
+      {!isPractice && <FullscreenAlert isActive={!isFullscreen} />}
       
       <header className="bg-white border-b border-gray-100 h-16 flex items-center justify-between px-6 z-10">
         <div className="text-lg font-semibold">
@@ -474,22 +674,26 @@ const Contest = () => {
         </div>
         
         <div className="flex items-center space-x-8">
-          <div className="flex items-center">
-            <span className="text-sm text-muted-foreground mr-2">Time Remaining:</span>
-            <div className={`font-mono text-sm font-medium rounded px-2 py-1 flex items-center ${timeLeft < 5 * 60 * 1000 ? 'bg-contest-red/10 text-contest-red' : 'bg-red-50 text-contest-red'}`}>
-              <Clock className="h-3.5 w-3.5 mr-1.5" />
-              {formatTime(timeLeft)}
+          {!isPractice && timeLeft !== null && (
+            <div className="flex items-center">
+              <span className="text-sm text-muted-foreground mr-2">Time Remaining:</span>
+              <div className={`font-mono text-sm font-medium rounded px-2 py-1 flex items-center ${timeLeft < 5 * 60 * 1000 ? 'bg-contest-red/10 text-contest-red' : 'bg-red-50 text-contest-red'}`}>
+                <Clock className="h-3.5 w-3.5 mr-1.5" />
+                {formatTime(timeLeft)}
+              </div>
             </div>
-          </div>
+          )}
           
-          <Button 
-            onClick={handleEndContest}
-            variant="outline" 
-            size="sm"
-            className="border-contest-red/20 text-contest-red hover:bg-contest-red/5 hover:text-contest-red"
-          >
-            End Contest
-          </Button>
+          {!isPractice && (
+            <Button 
+              onClick={handleEndContest}
+              variant="outline" 
+              size="sm"
+              className="border-contest-red/20 text-contest-red hover:bg-contest-red/5 hover:text-contest-red"
+            >
+              End Contest
+            </Button>
+          )}
         </div>
       </header>
       
@@ -500,7 +704,7 @@ const Contest = () => {
               <span className="bg-contest-red/10 text-contest-red text-xs font-medium px-2 py-1 rounded mr-2">
                 Question {currentQuestionIndex + 1}/{questions.length}
               </span>
-              {submittedQuestions[currentQuestion.id] && (
+              {submittedQuestions[currentQuestion.id] && !isPractice && (
                 <span className="flex items-center text-xs text-contest-green bg-contest-green/10 px-2 py-1 rounded">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Submitted
@@ -508,28 +712,30 @@ const Contest = () => {
               )}
             </div>
             
-            <div className="flex space-x-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handlePrevQuestion}
-                disabled={currentQuestionIndex === 0}
-                className="bg-white"
-              >
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Previous
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleNextQuestion}
-                disabled={currentQuestionIndex === questions.length - 1}
-                className="bg-white"
-              >
-                Next
-                <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
-            </div>
+            {questions.length > 1 && (
+              <div className="flex space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handlePrevQuestion}
+                  disabled={currentQuestionIndex === 0}
+                  className="bg-white"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleNextQuestion}
+                  disabled={currentQuestionIndex === questions.length - 1}
+                  className="bg-white"
+                >
+                  Next
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            )}
           </div>
           
           <h1 className="text-2xl font-bold mb-4">{currentQuestion.title}</h1>
@@ -592,6 +798,7 @@ const Contest = () => {
             languageTemplates={questionTemplates[currentQuestion.id] || {}}
             questionId={currentQuestion.id}
             onLanguageChange={(languageId) => handleLanguageChange(currentQuestion.id, languageId)}
+            onCodeChange={(code) => handleCodeChange(currentQuestion.id, code)}
           />
           
           <div className="mt-6">
@@ -641,6 +848,17 @@ const Contest = () => {
           </div>
         </div>
       </main>
+
+      {/* Results Dialog for Practice Mode */}
+      {isPractice && (
+        <ResultsDialog
+          isOpen={resultsDialogOpen}
+          setIsOpen={setResultsDialogOpen}
+          results={practiceResults.results}
+          score={practiceResults.score}
+          maxScore={practiceResults.maxScore}
+        />
+      )}
     </div>
   );
 };

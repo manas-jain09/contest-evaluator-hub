@@ -39,6 +39,7 @@ const App = () => (
             <Route path="/instructions" element={<Instructions />} />
             <Route path="/contest" element={<Contest />} />
             <Route path="/summary" element={<Summary />} />
+            <Route path="/:contestCode" element={<Contest />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

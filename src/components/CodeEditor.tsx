@@ -13,6 +13,7 @@ interface CodeEditorProps {
   languageTemplates: Record<number, string>;
   questionId: number; // Add questionId prop
   onLanguageChange?: (languageId: number) => void; // Add callback for language changes
+  onCodeChange?: (code: string) => void; // Add callback for code changes
 }
 
 const CodeEditor: React.FC<CodeEditorProps> = ({ 
@@ -22,7 +23,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   isProcessing,
   languageTemplates,
   questionId,
-  onLanguageChange
+  onLanguageChange,
+  onCodeChange
 }) => {
   const [code, setCode] = useState(initialCode);
   const [languageId, setLanguageId] = useState<number>(54); // Default to C++ (54)
@@ -44,6 +46,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       onLanguageChange(newLanguageId);
     }
   };
+
+  const handleCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newCode = e.target.value;
+    setCode(newCode);
+    if (onCodeChange) {
+      onCodeChange(newCode);
+    }
+  };
   
   const handleRun = () => {
     if (!code.trim()) {
@@ -59,6 +69,29 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       return;
     }
     onSubmit(code, languageId);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Handle tab key to insert spaces
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const target = e.target as HTMLTextAreaElement;
+      const start = target.selectionStart;
+      const end = target.selectionEnd;
+      
+      // Insert 2 spaces at cursor position
+      const newCode = code.substring(0, start) + "  " + code.substring(end);
+      setCode(newCode);
+      
+      // Move cursor position after inserted spaces
+      setTimeout(() => {
+        target.selectionStart = target.selectionEnd = start + 2;
+      }, 0);
+
+      if (onCodeChange) {
+        onCodeChange(newCode);
+      }
+    }
   };
   
   return (
@@ -103,10 +136,15 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       <div className="relative flex-grow border rounded-md overflow-hidden bg-gray-50">
         <textarea
           value={code}
-          onChange={(e) => setCode(e.target.value)}
+          onChange={handleCodeChange}
+          onKeyDown={handleKeyDown}
           className="font-mono text-sm absolute inset-0 w-full h-full p-4 resize-none outline-none focus:ring-1 focus:ring-primary/20 bg-gray-50"
           placeholder="Write your solution here..."
           disabled={isProcessing}
+          spellCheck={false}
+          autoCorrect="off"
+          autoCapitalize="off"
+          autoComplete="off"
         />
       </div>
     </div>

@@ -224,7 +224,7 @@ export const saveContestResults = async (
     prn: string, 
     year: string, 
     batch: string 
-  }, 
+  } | null, 
   score: number, 
   cheatingDetected: boolean = false,
   submissions: Array<{
@@ -235,6 +235,19 @@ export const saveContestResults = async (
   }>
 ) => {
   try {
+    // For practice contest we might not have user info
+    if (!userInfo) {
+      // Just save the submission without user info
+      if (submissions.length > 0) {
+        const submissionResult = {
+          contest_id: contestId,
+          score: score,
+        };
+        return submissionResult;
+      }
+      return null;
+    }
+    
     // Save the result
     const { data: resultData, error: resultError } = await supabase
       .from('results')
@@ -279,5 +292,102 @@ export const saveContestResults = async (
   } catch (error) {
     console.error("Error in saveContestResults:", error);
     throw error;
+  }
+};
+
+// Check if a contest is a practice contest
+export const isPracticeContest = async (contestId: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from('contests')
+      .select('type')
+      .eq('id', contestId)
+      .single();
+    
+    if (error || !data) {
+      console.error("Error checking contest type:", error);
+      return false;
+    }
+    
+    return data.type === 'practice';
+  } catch (error) {
+    console.error("Error in isPracticeContest:", error);
+    return false;
+  }
+};
+
+// Save practice progress
+export const savePracticeProgress = async (
+  contestId: string,
+  code: string,
+  languageId: number
+): Promise<void> => {
+  try {
+    // Check if there's an existing record
+    const { data: existingData, error: fetchError } = await supabase
+      .from('practice_progress')
+      .select('id')
+      .eq('contest_id', contestId)
+      .limit(1);
+    
+    if (fetchError) {
+      console.error("Error fetching practice progress:", fetchError);
+      return;
+    }
+    
+    if (existingData && existingData.length > 0) {
+      // Update existing record
+      const { error: updateError } = await supabase
+        .from('practice_progress')
+        .update({
+          user_code: code,
+          language_id: languageId,
+          last_updated: new Date().toISOString()
+        })
+        .eq('id', existingData[0].id);
+      
+      if (updateError) {
+        console.error("Error updating practice progress:", updateError);
+      }
+    } else {
+      // Insert new record
+      const { error: insertError } = await supabase
+        .from('practice_progress')
+        .insert({
+          contest_id: contestId,
+          user_code: code,
+          language_id: languageId
+        });
+      
+      if (insertError) {
+        console.error("Error inserting practice progress:", insertError);
+      }
+    }
+  } catch (error) {
+    console.error("Error in savePracticeProgress:", error);
+  }
+};
+
+// Load practice progress
+export const loadPracticeProgress = async (contestId: string): Promise<{ code: string | null, languageId: number | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from('practice_progress')
+      .select('user_code, language_id')
+      .eq('contest_id', contestId)
+      .limit(1)
+      .single();
+    
+    if (error) {
+      return { code: null, languageId: null };
+    }
+    
+    return { 
+      code: data.user_code, 
+      languageId: data.language_id 
+    };
+  } catch (error) {
+    console.error("Error in loadPracticeProgress:", error);
+    return { code: null, languageId: null };
   }
 };
