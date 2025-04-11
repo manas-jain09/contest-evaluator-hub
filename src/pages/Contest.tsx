@@ -49,13 +49,13 @@ const Contest = () => {
   const { contestCode, prn } = useParams();
   const { isFullscreen, warningShown, enterFullscreen } = useFullscreen();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userCode, setUserCode] = useState<Record<number, string>>({});
-  const [testResults, setTestResults] = useState<Record<number, TestResult[]>>({});
+  const [userCode, setUserCode] = useState<Record<string, string>>({});
+  const [testResults, setTestResults] = useState<Record<string, TestResult[]>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [submittedQuestions, setSubmittedQuestions] = useState<Record<number, boolean>>({});
-  const [questionTemplates, setQuestionTemplates] = useState<Record<number, Record<number, string>>>({});
-  const [selectedLanguages, setSelectedLanguages] = useState<Record<number, number>>({});
+  const [submittedQuestions, setSubmittedQuestions] = useState<Record<string, boolean>>({});
+  const [questionTemplates, setQuestionTemplates] = useState<Record<string, Record<number, string>>>({});
+  const [selectedLanguages, setSelectedLanguages] = useState<Record<string, number>>({});
   const [questions, setQuestions] = useState<any[]>([]);
   const [contestInfo, setContestInfo] = useState<ContestInfo | null>(null);
   const [userInfo, setUserInfo] = useState<any>(null);
@@ -277,7 +277,7 @@ const Contest = () => {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
   
-  const handleCodeChange = (questionId: number, code: string) => {
+  const handleCodeChange = (questionId: string, code: string) => {
     setUserCode(prev => ({
       ...prev,
       [questionId]: code
@@ -288,7 +288,7 @@ const Contest = () => {
     }
   };
   
-  const handleLanguageChange = (questionId: number, languageId: number) => {
+  const handleLanguageChange = (questionId: string, languageId: number) => {
     setSelectedLanguages(prev => ({
       ...prev,
       [questionId]: languageId
