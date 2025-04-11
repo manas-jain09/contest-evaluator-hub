@@ -651,9 +651,6 @@ const Contest = () => {
       {!isPractice && <FullscreenAlert isActive={!isFullscreen} />}
       
       <header className="bg-white border-b border-gray-100 h-16 flex items-center justify-between px-6 z-10">
-        <div className="text-lg font-semibold">
-          {prn && <span className="text-sm text-muted-foreground ml-2">PRN: {prn}</span>}
-        </div>
         
         <div className="flex items-center space-x-8">
           {!isPractice && timeLeft !== null && (
