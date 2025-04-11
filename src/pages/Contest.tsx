@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
@@ -46,7 +45,7 @@ interface ContestInfo {
 
 const Contest = () => {
   const navigate = useNavigate();
-  const { contestCode } = useParams();
+  const { contestCode, prn } = useParams();
   const { isFullscreen, warningShown, enterFullscreen } = useFullscreen();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userCode, setUserCode] = useState<Record<number, string>>({});
@@ -74,7 +73,6 @@ const Contest = () => {
   
   const currentQuestion = questions[currentQuestionIndex];
 
-  // Auto-save timer for practice mode
   useEffect(() => {
     if (!isPractice || !currentQuestion || !contestInfo) return;
     
@@ -83,21 +81,19 @@ const Contest = () => {
       const currentLanguage = selectedLanguages[currentQuestion.id];
       
       if (currentCode && currentLanguage) {
-        savePracticeProgress(contestInfo.id, currentCode, currentLanguage);
+        savePracticeProgress(contestInfo.id, currentCode, currentLanguage, prn);
       }
-    }, 30000); // Auto-save every 30 seconds
+    }, 30000);
     
     return () => clearInterval(autoSaveInterval);
-  }, [isPractice, currentQuestion, contestInfo, userCode, selectedLanguages]);
+  }, [isPractice, currentQuestion, contestInfo, userCode, selectedLanguages, prn]);
   
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
         
-        // Handle practice contest from URL
         if (contestCode) {
-          // Try to fetch contest from URL parameter
           try {
             const contest = await fetchContestByCode(contestCode);
             
@@ -107,7 +103,6 @@ const Contest = () => {
               return;
             }
             
-            // Make sure type is cast to the correct union type
             const typedContest: ContestInfo = {
               ...contest,
               type: contest.type as 'assessment' | 'practice'
@@ -117,46 +112,36 @@ const Contest = () => {
             const isPracticeMode = typedContest.type === 'practice';
             setIsPractice(isPracticeMode);
             
-            // Fetch questions for this contest
             const fetchedQuestions = await fetchQuestionsByContest(contest.id);
             setQuestions(fetchedQuestions);
             
-            // Get default templates
             const defaultTemplates = await getLanguageTemplates();
             
-            // Initialize data structures
             const initialUserCode: Record<number, string> = {};
             const initialSelectedLanguages: Record<number, number> = {};
             const initialTemplates: Record<number, Record<number, string>> = {};
             
-            // For each question, fetch its specific templates
             await Promise.all(fetchedQuestions.map(async (q) => {
-              // Default to C++ (54) for all questions initially
               let languageId = 54;
               initialSelectedLanguages[q.id] = languageId;
               
-              // Get question-specific templates
               const questionSpecificTemplates = await getLanguageTemplates(q.id);
               
-              // Merge default templates with question-specific ones, giving priority to question-specific
               initialTemplates[q.id] = {
                 ...defaultTemplates,
                 ...questionSpecificTemplates
               };
               
-              // For practice mode, check if there's saved progress
               if (isPracticeMode) {
-                const progress = await loadPracticeProgress(contest.id);
+                const progress = await loadPracticeProgress(contest.id, prn);
                 if (progress.code && progress.languageId) {
                   initialUserCode[q.id] = progress.code;
                   initialSelectedLanguages[q.id] = progress.languageId;
                   languageId = progress.languageId;
                 } else {
-                  // Set initial code for this question using the template
                   initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
                 }
               } else {
-                // Set initial code for this question using the template
                 initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
               }
             }));
@@ -175,7 +160,6 @@ const Contest = () => {
           }
         }
         
-        // Regular assessment contest flow
         const userData = sessionStorage.getItem('contestUser');
         const contestData = sessionStorage.getItem('contestInfo');
         
@@ -190,7 +174,6 @@ const Contest = () => {
         
         setUserInfo(user);
         
-        // Make sure type is cast to the correct union type
         const typedContest: ContestInfo = {
           ...contest,
           type: contest.type as 'assessment' | 'practice'
@@ -198,49 +181,39 @@ const Contest = () => {
         
         setContestInfo(typedContest);
         
-        // Check if this is a practice contest
         const practiceMode = await isPracticeContest(contest.id);
         setIsPractice(practiceMode);
         
         const fetchedQuestions = await fetchQuestionsByContest(contest.id);
         setQuestions(fetchedQuestions);
         
-        // Get default templates for all languages
         const defaultTemplates = await getLanguageTemplates();
         
-        // Initialize data structures
         const initialUserCode: Record<number, string> = {};
         const initialSelectedLanguages: Record<number, number> = {};
         const initialTemplates: Record<number, Record<number, string>> = {};
         
-        // For each question, fetch its specific templates
         await Promise.all(fetchedQuestions.map(async (q) => {
-          // Default to C++ (54) for all questions initially
           let languageId = 54;
           initialSelectedLanguages[q.id] = languageId;
           
-          // Get question-specific templates
           const questionSpecificTemplates = await getLanguageTemplates(q.id);
           
-          // Merge default templates with question-specific ones, giving priority to question-specific
           initialTemplates[q.id] = {
             ...defaultTemplates,
             ...questionSpecificTemplates
           };
           
-          // For practice mode, check if there's saved progress
           if (practiceMode) {
-            const progress = await loadPracticeProgress(contest.id);
+            const progress = await loadPracticeProgress(contest.id, prn);
             if (progress.code && progress.languageId) {
               initialUserCode[q.id] = progress.code;
               initialSelectedLanguages[q.id] = progress.languageId;
               languageId = progress.languageId;
             } else {
-              // Set initial code for this question using the template
               initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
             }
           } else {
-            // Set initial code for this question using the template
             initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
           }
         }));
@@ -258,12 +231,11 @@ const Contest = () => {
     };
     
     fetchData();
-  }, [navigate, contestCode]);
+  }, [navigate, contestCode, prn]);
   
   useEffect(() => {
     if (!contestInfo || isPractice) return;
     
-    // For assessment contests, enter fullscreen
     if (document.documentElement.requestFullscreen && !isFullscreen) {
       enterFullscreen();
     }
@@ -310,9 +282,8 @@ const Contest = () => {
       [questionId]: code
     }));
     
-    // Auto-save for practice mode
     if (isPractice && contestInfo) {
-      savePracticeProgress(contestInfo.id, code, selectedLanguages[questionId] || 54);
+      savePracticeProgress(contestInfo.id, code, selectedLanguages[questionId] || 54, prn);
     }
   };
   
@@ -322,7 +293,6 @@ const Contest = () => {
       [questionId]: languageId
     }));
     
-    // If we have a template for this language and question, update the code
     if (questionTemplates[questionId] && questionTemplates[questionId][languageId]) {
       setUserCode(prev => ({
         ...prev,
@@ -490,7 +460,6 @@ const Contest = () => {
       const maxScore = allTestCases.reduce((total, tc: any) => total + (tc.points || 0), 0);
       
       if (isPractice) {
-        // For practice mode, show results dialog
         const formattedResults = results.map((r, idx) => ({
           index: idx + 1,
           status: r.isSuccess ? 'success' as const : 'error' as const,
@@ -509,21 +478,20 @@ const Contest = () => {
         
         setResultsDialogOpen(true);
         
-        // Save the submission
         await saveContestResults(
           contestInfo.id,
-          null, // No user info for practice
+          null,
           score,
-          false, // No cheating for practice
+          false,
           [{
             questionId: currentQuestion.id,
             languageId,
             code,
             score
-          }]
+          }],
+          prn
         );
       } else {
-        // For assessment mode
         setSubmittedQuestions(prev => ({
           ...prev,
           [currentQuestion.id]: true
@@ -582,7 +550,6 @@ const Contest = () => {
       return;
     }
     
-    // Only for assessment contests
     if (isPractice) return;
     
     try {
@@ -620,7 +587,6 @@ const Contest = () => {
         }
       });
       
-      // Fix: Convert warningShown to a number for comparison
       const cheatingDetected = typeof warningShown === 'number' && warningShown > 1;
       
       if (userInfo) {
@@ -629,7 +595,8 @@ const Contest = () => {
           userInfo,
           totalScore,
           cheatingDetected,
-          submissionsArray
+          submissionsArray,
+          prn
         );
       }
       
@@ -684,7 +651,7 @@ const Contest = () => {
       
       <header className="bg-white border-b border-gray-100 h-16 flex items-center justify-between px-6 z-10">
         <div className="text-lg font-semibold">
-          {contestInfo?.name || "Arena Contest"}
+          {prn && <span className="text-sm text-muted-foreground ml-2">PRN: {prn}</span>}
         </div>
         
         <div className="flex items-center space-x-8">
@@ -863,7 +830,6 @@ const Contest = () => {
         </div>
       </main>
 
-      {/* Results Dialog for Practice Mode */}
       {isPractice && (
         <ResultsDialog
           isOpen={resultsDialogOpen}
@@ -878,4 +844,3 @@ const Contest = () => {
 };
 
 export default Contest;
-
