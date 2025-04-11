@@ -107,8 +107,14 @@ const Contest = () => {
               return;
             }
             
-            setContestInfo(contest);
-            const isPracticeMode = contest.type === 'practice';
+            // Make sure type is cast to the correct union type
+            const typedContest: ContestInfo = {
+              ...contest,
+              type: contest.type as 'assessment' | 'practice'
+            };
+            
+            setContestInfo(typedContest);
+            const isPracticeMode = typedContest.type === 'practice';
             setIsPractice(isPracticeMode);
             
             // Fetch questions for this contest
@@ -183,7 +189,14 @@ const Contest = () => {
         const contest = JSON.parse(contestData);
         
         setUserInfo(user);
-        setContestInfo(contest);
+        
+        // Make sure type is cast to the correct union type
+        const typedContest: ContestInfo = {
+          ...contest,
+          type: contest.type as 'assessment' | 'practice'
+        };
+        
+        setContestInfo(typedContest);
         
         // Check if this is a practice contest
         const practiceMode = await isPracticeContest(contest.id);
@@ -607,7 +620,8 @@ const Contest = () => {
         }
       });
       
-      const cheatingDetected = warningShown > 1;
+      // Fix: Convert warningShown to a number for comparison
+      const cheatingDetected = typeof warningShown === 'number' && warningShown > 1;
       
       if (userInfo) {
         await saveContestResults(
@@ -864,3 +878,4 @@ const Contest = () => {
 };
 
 export default Contest;
+
