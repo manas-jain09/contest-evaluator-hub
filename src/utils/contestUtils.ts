@@ -1,4 +1,3 @@
-
 // Judge0 API endpoints
 const API_SUBMISSION_URL = "https://judge0.arenahq-mitwpu.in/submissions";
 
@@ -240,47 +239,47 @@ export const saveContestResults = async (
     const submissionPrn = prn || (userInfo ? userInfo.prn : null);
     
     // For practice contest or if we have a PRN without user info
-    if (!userInfo || submissionPrn) {
+    if (!userInfo && submissionPrn) {
       // If we have a PRN, save the result with minimal info
-      if (submissionPrn) {
-        const { data: resultData, error: resultError } = await supabase
-          .from('results')
-          .insert({
-            contest_id: contestId,
-            prn: submissionPrn,
-            score: score,
-            cheating_detected: cheatingDetected
-          })
-          .select()
-          .single();
-          
-        if (resultError) {
-          console.error("Error saving contest results:", resultError);
-          throw new Error("Failed to save contest results");
-        }
+      const { data: resultData, error: resultError } = await supabase
+        .from('results')
+        .insert({
+          contest_id: contestId,
+          prn: submissionPrn,
+          name: "Practice User",
+          email: `practice_${submissionPrn}@example.com`,
+          score: score,
+          cheating_detected: cheatingDetected
+        })
+        .select()
+        .single();
         
-        // Save each submission
-        if (submissions.length > 0) {
-          const submissionRecords = submissions.map(sub => ({
-            result_id: resultData.id,
-            question_id: sub.questionId,
-            language_id: sub.languageId,
-            code: sub.code,
-            score: sub.score
-          }));
-          
-          const { error: submissionError } = await supabase
-            .from('submissions')
-            .insert(submissionRecords);
-          
-          if (submissionError) {
-            console.error("Error saving submissions:", submissionError);
-          }
-        }
-        
-        return resultData;
+      if (resultError) {
+        console.error("Error saving contest results:", resultError);
+        throw new Error("Failed to save contest results");
       }
       
+      // Save each submission
+      if (submissions.length > 0) {
+        const submissionRecords = submissions.map(sub => ({
+          result_id: resultData.id,
+          question_id: sub.questionId,
+          language_id: sub.languageId,
+          code: sub.code,
+          score: sub.score
+        }));
+        
+        const { error: submissionError } = await supabase
+          .from('submissions')
+          .insert(submissionRecords);
+        
+        if (submissionError) {
+          console.error("Error saving submissions:", submissionError);
+        }
+      }
+      
+      return resultData;
+    } else if (!userInfo) {
       // Just return without saving for practice mode without PRN
       if (submissions.length > 0) {
         return { contest_id: contestId, score: score };
@@ -288,7 +287,7 @@ export const saveContestResults = async (
       return null;
     }
     
-    // Save the result
+    // Save the result with full user info
     const { data: resultData, error: resultError } = await supabase
       .from('results')
       .insert({
@@ -364,21 +363,18 @@ export const savePracticeProgress = async (
   prn?: string
 ): Promise<void> => {
   try {
-    // Check if there's an existing record for this user/PRN
-    let query = supabase
+    if (!prn) {
+      console.error("Missing PRN for saving practice progress");
+      return;
+    }
+
+    // Check if there's an existing record for this PRN
+    const { data: existingData, error: fetchError } = await supabase
       .from('practice_progress')
       .select('id')
-      .eq('contest_id', contestId);
-      
-    // Add PRN condition if available
-    if (prn) {
-      query = query.eq('prn', prn);
-    }
-    
-    // Limit to 1 record
-    query = query.limit(1);
-    
-    const { data: existingData, error: fetchError } = await query;
+      .eq('contest_id', contestId)
+      .eq('prn', prn)
+      .limit(1);
     
     if (fetchError) {
       console.error("Error fetching practice progress:", fetchError);
@@ -407,7 +403,7 @@ export const savePracticeProgress = async (
           contest_id: contestId,
           user_code: code,
           language_id: languageId,
-          prn: prn // Store PRN if available
+          prn: prn
         });
       
       if (insertError) {
@@ -422,22 +418,18 @@ export const savePracticeProgress = async (
 // Load practice progress
 export const loadPracticeProgress = async (contestId: string, prn?: string): Promise<{ code: string | null, languageId: number | null }> => {
   try {
-    let query = supabase
+    if (!prn) {
+      return { code: null, languageId: null };
+    }
+
+    const { data, error } = await supabase
       .from('practice_progress')
       .select('user_code, language_id')
-      .eq('contest_id', contestId);
-      
-    // Add PRN condition if available
-    if (prn) {
-      query = query.eq('prn', prn);
-    }
+      .eq('contest_id', contestId)
+      .eq('prn', prn)
+      .maybeSingle();
     
-    // Limit to 1 record
-    query = query.limit(1).single();
-    
-    const { data, error } = await query;
-    
-    if (error) {
+    if (error || !data) {
       return { code: null, languageId: null };
     }
     

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
@@ -105,7 +106,7 @@ const Contest = () => {
             
             const typedContest: ContestInfo = {
               ...contest,
-              type: contest.type as 'assessment' | 'practice'
+              type: contest.type === 'practice' ? 'practice' : 'assessment'
             };
             
             setContestInfo(typedContest);
@@ -176,7 +177,7 @@ const Contest = () => {
         
         const typedContest: ContestInfo = {
           ...contest,
-          type: contest.type as 'assessment' | 'practice'
+          type: contest.type === 'practice' ? 'practice' : 'assessment'
         };
         
         setContestInfo(typedContest);
