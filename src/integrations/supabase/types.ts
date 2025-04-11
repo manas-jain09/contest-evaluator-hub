@@ -171,6 +171,41 @@ export type Database = {
         }
         Relationships: []
       }
+      practice_contest_results: {
+        Row: {
+          contest_id: string
+          created_at: string
+          id: string
+          is_completed: boolean
+          prn: string
+          updated_at: string
+        }
+        Insert: {
+          contest_id: string
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          prn: string
+          updated_at?: string
+        }
+        Update: {
+          contest_id?: string
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          prn?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_contest"
+            columns: ["contest_id"]
+            isOneToOne: false
+            referencedRelation: "contests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       practice_progress: {
         Row: {
           contest_id: string | null

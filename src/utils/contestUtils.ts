@@ -444,3 +444,60 @@ export const loadPracticeProgress = async (contestId: string, prn?: string): Pro
     return { code: null, languageId: null };
   }
 };
+
+// New function to update practice contest results
+export const updatePracticeContestResults = async (
+  contestId: string,
+  prn: string,
+  isCompleted: boolean
+): Promise<void> => {
+  try {
+    if (!prn || !contestId) {
+      console.error("Missing PRN or contest ID for updating practice results");
+      return;
+    }
+
+    // Check if there's an existing record for this PRN and contest
+    const { data: existingData, error: fetchError } = await supabase
+      .from('practice_contest_results')
+      .select('id')
+      .eq('contest_id', contestId)
+      .eq('prn', prn)
+      .maybeSingle();
+    
+    if (fetchError) {
+      console.error("Error fetching practice contest results:", fetchError);
+      return;
+    }
+    
+    if (existingData) {
+      // Update existing record
+      const { error: updateError } = await supabase
+        .from('practice_contest_results')
+        .update({
+          is_completed: isCompleted,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingData.id);
+      
+      if (updateError) {
+        console.error("Error updating practice contest results:", updateError);
+      }
+    } else {
+      // Insert new record
+      const { error: insertError } = await supabase
+        .from('practice_contest_results')
+        .insert({
+          contest_id: contestId,
+          prn: prn,
+          is_completed: isCompleted
+        });
+      
+      if (insertError) {
+        console.error("Error inserting practice contest results:", insertError);
+      }
+    }
+  } catch (error) {
+    console.error("Error in updatePracticeContestResults:", error);
+  }
+};

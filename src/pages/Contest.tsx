@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
@@ -19,7 +18,8 @@ import {
   saveContestResults,
   isPracticeContest,
   savePracticeProgress,
-  loadPracticeProgress
+  loadPracticeProgress,
+  updatePracticeContestResults
 } from '@/utils/contestUtils';
 
 type TestResult = {
@@ -459,6 +459,10 @@ const Contest = () => {
       }, 0);
 
       const maxScore = allTestCases.reduce((total, tc: any) => total + (tc.points || 0), 0);
+      
+      if (isPractice && prn && score === maxScore) {
+        await updatePracticeContestResults(contestInfo.id, prn, true);
+      }
       
       if (isPractice) {
         const formattedResults = results.map((r, idx) => ({
