@@ -33,7 +33,39 @@ export type Database = {
             foreignKeyName: "constraints_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
-            referencedRelation: "questions"
+            referencedRelation: "contest_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contest_questions: {
+        Row: {
+          contest_id: string | null
+          created_at: string
+          description: string
+          id: number
+          title: string
+        }
+        Insert: {
+          contest_id?: string | null
+          created_at?: string
+          description: string
+          id?: number
+          title: string
+        }
+        Update: {
+          contest_id?: string | null
+          created_at?: string
+          description?: string
+          id?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_contest_id_fkey"
+            columns: ["contest_id"]
+            isOneToOne: false
+            referencedRelation: "contests"
             referencedColumns: ["id"]
           },
         ]
@@ -104,7 +136,7 @@ export type Database = {
             foreignKeyName: "examples_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
-            referencedRelation: "questions"
+            referencedRelation: "contest_questions"
             referencedColumns: ["id"]
           },
         ]
@@ -136,7 +168,7 @@ export type Database = {
             foreignKeyName: "language_templates_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
-            referencedRelation: "questions"
+            referencedRelation: "contest_questions"
             referencedColumns: ["id"]
           },
         ]
@@ -169,38 +201,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "practice_progress_contest_id_fkey"
-            columns: ["contest_id"]
-            isOneToOne: false
-            referencedRelation: "contests"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      questions: {
-        Row: {
-          contest_id: string | null
-          created_at: string
-          description: string
-          id: number
-          title: string
-        }
-        Insert: {
-          contest_id?: string | null
-          created_at?: string
-          description: string
-          id?: number
-          title: string
-        }
-        Update: {
-          contest_id?: string | null
-          created_at?: string
-          description?: string
-          id?: number
-          title?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "questions_contest_id_fkey"
             columns: ["contest_id"]
             isOneToOne: false
             referencedRelation: "contests"
@@ -288,7 +288,7 @@ export type Database = {
             foreignKeyName: "submissions_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
-            referencedRelation: "questions"
+            referencedRelation: "contest_questions"
             referencedColumns: ["id"]
           },
           {
@@ -333,7 +333,7 @@ export type Database = {
             foreignKeyName: "test_cases_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
-            referencedRelation: "questions"
+            referencedRelation: "contest_questions"
             referencedColumns: ["id"]
           },
         ]

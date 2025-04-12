@@ -1,4 +1,3 @@
-
 // Judge0 API endpoints
 const API_SUBMISSION_URL = "https://judge0.arenahq-mitwpu.in/submissions";
 
@@ -137,7 +136,7 @@ export const fetchContestByCode = async (code: string) => {
 // Fetch questions for a specific contest
 export const fetchQuestionsByContest = async (contestId: string) => {
   const { data: questionsData, error: questionsError } = await supabase
-    .from('questions')
+    .from('contest_questions')
     .select('*')
     .eq('contest_id', contestId);
   
@@ -248,6 +247,8 @@ export const saveContestResults = async (
           .insert({
             contest_id: contestId,
             prn: submissionPrn,
+            name: "Practice User",
+            email: "practice@example.com",
             score: score,
             cheating_detected: cheatingDetected
           })
@@ -365,20 +366,12 @@ export const savePracticeProgress = async (
 ): Promise<void> => {
   try {
     // Check if there's an existing record for this user/PRN
-    let query = supabase
+    const { data: existingData, error: fetchError } = await supabase
       .from('practice_progress')
       .select('id')
-      .eq('contest_id', contestId);
-      
-    // Add PRN condition if available
-    if (prn) {
-      query = query.eq('prn', prn);
-    }
-    
-    // Limit to 1 record
-    query = query.limit(1);
-    
-    const { data: existingData, error: fetchError } = await query;
+      .eq('contest_id', contestId)
+      .eq('prn', prn || null)
+      .limit(1);
     
     if (fetchError) {
       console.error("Error fetching practice progress:", fetchError);
@@ -422,20 +415,13 @@ export const savePracticeProgress = async (
 // Load practice progress
 export const loadPracticeProgress = async (contestId: string, prn?: string): Promise<{ code: string | null, languageId: number | null }> => {
   try {
-    let query = supabase
+    const { data, error } = await supabase
       .from('practice_progress')
       .select('user_code, language_id')
-      .eq('contest_id', contestId);
-      
-    // Add PRN condition if available
-    if (prn) {
-      query = query.eq('prn', prn);
-    }
-    
-    // Limit to 1 record
-    query = query.limit(1).single();
-    
-    const { data, error } = await query;
+      .eq('contest_id', contestId)
+      .eq('prn', prn || null)
+      .limit(1)
+      .single();
     
     if (error) {
       return { code: null, languageId: null };
