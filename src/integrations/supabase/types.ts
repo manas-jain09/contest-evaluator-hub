@@ -147,6 +147,7 @@ export type Database = {
           id: string
           language_id: number
           last_updated: string
+          prn: string | null
           user_code: string | null
         }
         Insert: {
@@ -154,6 +155,7 @@ export type Database = {
           id?: string
           language_id: number
           last_updated?: string
+          prn?: string | null
           user_code?: string | null
         }
         Update: {
@@ -161,6 +163,7 @@ export type Database = {
           id?: string
           language_id?: number
           last_updated?: string
+          prn?: string | null
           user_code?: string | null
         }
         Relationships: [
