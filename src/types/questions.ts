@@ -35,6 +35,8 @@ export interface MCQQuestion extends BaseQuestion {
   imageUrl?: string;
   options: MCQOption[];
   points: number;
+  // Add empty testCases to maintain type compatibility
+  testCases?: never[];
 }
 
 export type Question = CodingQuestion | MCQQuestion;

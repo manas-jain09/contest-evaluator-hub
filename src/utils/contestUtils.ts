@@ -1,7 +1,10 @@
+
 // Judge0 API endpoints
 const API_SUBMISSION_URL = "https://judge0.arenahq-mitwpu.in/submissions";
 
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/utils/toast";
+import { createClient } from '@supabase/supabase-js';
 
 // Contest code validation
 export const validateContestCode = async (code: string): Promise<boolean> => {
@@ -136,7 +139,7 @@ export const fetchContestByCode = async (code: string) => {
 // Fetch questions for a specific contest
 export const fetchQuestionsByContest = async (contestId: string) => {
   try {
-    const supabase = createClient();
+    // Use the existing supabase client instead of creating a new one
     
     // Fetch basic question data
     const { data: questionsData, error } = await supabase

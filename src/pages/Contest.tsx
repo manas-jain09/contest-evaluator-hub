@@ -311,6 +311,11 @@ const Contest = () => {
     
     setIsProcessing(true);
     
+    if (currentQuestion.type === 'mcq') {
+      setIsProcessing(false);
+      return;
+    }
+    
     const initialResults: TestResult[] = currentQuestion.testCases
       .filter((tc: any) => tc.visible)
       .map((tc: any, index: number) => ({
