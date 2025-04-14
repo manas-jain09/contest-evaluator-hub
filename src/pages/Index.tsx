@@ -1,10 +1,11 @@
+
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
 import { createMockContest } from "@/utils/mockContest";
+import { toast } from '@/utils/toast'; // Use the existing toast utility
 
 const Index = () => {
   useEffect(() => {
