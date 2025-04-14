@@ -165,8 +165,9 @@ export const fetchQuestionsByContest = async (contestId: string) => {
           description: mcqData.description,
           imageUrl: mcqData.imageUrl,
           options: mcqData.options,
-          type: 'mcq',
-          points: mcqData.points || 10
+          type: 'mcq' as const, // Use const assertion to ensure literal type
+          points: mcqData.points || 10,
+          testCases: [] // Empty array for type compatibility
         };
       } else {
         // Regular coding question
@@ -209,7 +210,7 @@ export const fetchQuestionsByContest = async (contestId: string) => {
           examples,
           constraints,
           testCases,
-          type: 'coding'
+          type: 'coding' as const // Use const assertion to ensure literal type
         };
       }
     }));

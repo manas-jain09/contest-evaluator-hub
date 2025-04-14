@@ -12,6 +12,7 @@ import { useFullscreen } from '@/hooks/useFullscreen';
 import QuestionsSidebar from '@/components/QuestionsSidebar';
 import MCQQuestion from '@/components/MCQQuestion';
 import { Question, QuestionType } from '@/types/questions';
+import { TestResult } from '@/types/testResult';
 import { 
   fetchQuestionsByContest,
   fetchContestByCode,
@@ -23,17 +24,6 @@ import {
   savePracticeProgress,
   loadPracticeProgress
 } from '@/utils/contestUtils';
-
-type TestResult = {
-  index: number;
-  status: 'success' | 'error' | 'processing' | 'waiting';
-  input?: string;
-  expected?: string;
-  output?: string;
-  message?: string;
-  points?: number;
-  visible?: boolean;
-};
 
 interface ContestInfo {
   id: string;
@@ -320,7 +310,7 @@ const Contest = () => {
       .filter((tc: any) => tc.visible)
       .map((tc: any, index: number) => ({
         index: index + 1,
-        status: 'processing',
+        status: 'processing' as const,
         input: tc.input,
         expected: tc.expected,
         visible: tc.visible,

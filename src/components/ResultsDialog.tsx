@@ -9,9 +9,10 @@ import {
 } from "@/components/ui/dialog";
 import { CheckCircle, XCircle } from 'lucide-react';
 
-type TestResult = {
+// Update the TestResult type to match the one used in Contest.tsx
+export type TestResult = {
   index: number;
-  status: 'success' | 'error';
+  status: 'success' | 'error' | 'processing' | 'waiting';
   input?: string;
   expected?: string;
   output?: string;
@@ -19,6 +20,7 @@ type TestResult = {
   visible?: boolean;
   mcq?: boolean;
   questionTitle?: string;
+  message?: string;
 };
 
 interface ResultsDialogProps {
