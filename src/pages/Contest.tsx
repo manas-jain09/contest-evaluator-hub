@@ -13,6 +13,7 @@ import QuestionsSidebar from '@/components/QuestionsSidebar';
 import MCQQuestion from '@/components/MCQQuestion';
 import { Question, QuestionType } from '@/types/questions';
 import { TestResult } from '@/types/testResult';
+import { createMockContest } from '@/utils/mockContest';
 import { 
   fetchQuestionsByContest,
   fetchContestByCode,
@@ -93,6 +94,36 @@ const Contest = () => {
             const contest = await fetchContestByCode(contestCode);
             
             if (!contest || !contest.public_access) {
+              if (contestCode === 'practice123') {
+                const mockContestId = await createMockContest();
+                if (mockContestId) {
+                  const mockContest = await fetchContestByCode('practice123');
+                  if (!mockContest) {
+                    toast.error("Failed to create mock contest");
+                    navigate('/register');
+                    return;
+                  }
+                  const typedContest: ContestInfo = {
+                    ...mockContest,
+                    type: mockContest.type as 'assessment' | 'practice'
+                  };
+                  setContestInfo(typedContest);
+                  setIsPractice(true);
+                  
+                  const fetchedQuestions = await fetchQuestionsByContest(mockContest.id);
+                  setQuestions(fetchedQuestions);
+                  
+                  await setupTemplatesAndUserCode(fetchedQuestions, mockContest.id);
+                  
+                  setIsLoading(false);
+                  return;
+                } else {
+                  toast.error("Contest not found or not publicly accessible");
+                  navigate('/register');
+                  return;
+                }
+              }
+              
               toast.error("Contest not found or not publicly accessible");
               navigate('/register');
               return;
@@ -110,40 +141,7 @@ const Contest = () => {
             const fetchedQuestions = await fetchQuestionsByContest(contest.id);
             setQuestions(fetchedQuestions);
             
-            const defaultTemplates = await getLanguageTemplates();
-            
-            const initialUserCode: Record<number, string> = {};
-            const initialSelectedLanguages: Record<number, number> = {};
-            const initialTemplates: Record<number, Record<number, string>> = {};
-            
-            await Promise.all(fetchedQuestions.map(async (q) => {
-              let languageId = 54;
-              initialSelectedLanguages[q.id] = languageId;
-              
-              const questionSpecificTemplates = await getLanguageTemplates(q.id);
-              
-              initialTemplates[q.id] = {
-                ...defaultTemplates,
-                ...questionSpecificTemplates
-              };
-              
-              if (isPracticeMode) {
-                const progress = await loadPracticeProgress(contest.id, prn);
-                if (progress.code && progress.languageId) {
-                  initialUserCode[q.id] = progress.code;
-                  initialSelectedLanguages[q.id] = progress.languageId;
-                  languageId = progress.languageId;
-                } else {
-                  initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
-                }
-              } else {
-                initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
-              }
-            }));
-            
-            setQuestionTemplates(initialTemplates);
-            setUserCode(initialUserCode);
-            setSelectedLanguages(initialSelectedLanguages);
+            await setupTemplatesAndUserCode(fetchedQuestions, contest.id);
             
             setIsLoading(false);
             return;
@@ -182,40 +180,7 @@ const Contest = () => {
         const fetchedQuestions = await fetchQuestionsByContest(contest.id);
         setQuestions(fetchedQuestions);
         
-        const defaultTemplates = await getLanguageTemplates();
-        
-        const initialUserCode: Record<number, string> = {};
-        const initialSelectedLanguages: Record<number, number> = {};
-        const initialTemplates: Record<number, Record<number, string>> = {};
-        
-        await Promise.all(fetchedQuestions.map(async (q) => {
-          let languageId = 54;
-          initialSelectedLanguages[q.id] = languageId;
-          
-          const questionSpecificTemplates = await getLanguageTemplates(q.id);
-          
-          initialTemplates[q.id] = {
-            ...defaultTemplates,
-            ...questionSpecificTemplates
-          };
-          
-          if (practiceMode) {
-            const progress = await loadPracticeProgress(contest.id, prn);
-            if (progress.code && progress.languageId) {
-              initialUserCode[q.id] = progress.code;
-              initialSelectedLanguages[q.id] = progress.languageId;
-              languageId = progress.languageId;
-            } else {
-              initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
-            }
-          } else {
-            initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
-          }
-        }));
-        
-        setQuestionTemplates(initialTemplates);
-        setUserCode(initialUserCode);
-        setSelectedLanguages(initialSelectedLanguages);
+        await setupTemplatesAndUserCode(fetchedQuestions, contest.id);
         
         setIsLoading(false);
       } catch (error) {
@@ -227,6 +192,43 @@ const Contest = () => {
     
     fetchData();
   }, [navigate, contestCode, prn]);
+  
+  const setupTemplatesAndUserCode = async (fetchedQuestions: Question[], contestId: string) => {
+    const defaultTemplates = await getLanguageTemplates();
+    
+    const initialUserCode: Record<number, string> = {};
+    const initialSelectedLanguages: Record<number, number> = {};
+    const initialTemplates: Record<number, Record<number, string>> = {};
+    
+    await Promise.all(fetchedQuestions.map(async (q) => {
+      let languageId = 54;
+      initialSelectedLanguages[q.id] = languageId;
+      
+      const questionSpecificTemplates = await getLanguageTemplates(q.id);
+      
+      initialTemplates[q.id] = {
+        ...defaultTemplates,
+        ...questionSpecificTemplates
+      };
+      
+      if (isPractice) {
+        const progress = await loadPracticeProgress(contestId, prn);
+        if (progress.code && progress.languageId) {
+          initialUserCode[q.id] = progress.code;
+          initialSelectedLanguages[q.id] = progress.languageId;
+          languageId = progress.languageId;
+        } else if (q.type === 'coding') {
+          initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
+        }
+      } else if (q.type === 'coding') {
+        initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
+      }
+    }));
+    
+    setQuestionTemplates(initialTemplates);
+    setUserCode(initialUserCode);
+    setSelectedLanguages(initialSelectedLanguages);
+  };
   
   useEffect(() => {
     if (!contestInfo || isPractice) return;
@@ -299,12 +301,12 @@ const Contest = () => {
   const handleRun = async (code: string, languageId: number) => {
     if (!currentQuestion) return;
     
-    setIsProcessing(true);
-    
     if (currentQuestion.type === 'mcq') {
       setIsProcessing(false);
       return;
     }
+    
+    setIsProcessing(true);
     
     const initialResults: TestResult[] = currentQuestion.testCases
       .filter((tc: any) => tc.visible)

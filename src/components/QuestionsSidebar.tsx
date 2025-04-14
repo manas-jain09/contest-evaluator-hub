@@ -81,6 +81,7 @@ const QuestionsSidebar = ({
         className={`flex items-center justify-center h-10 w-6 bg-white border border-l-0 border-gray-100 rounded-r-md mt-20 ${
           isOpen ? 'hidden' : 'block'
         }`}
+        aria-label="Open questions sidebar"
       >
         <ChevronRight className="h-4 w-4" />
       </button>

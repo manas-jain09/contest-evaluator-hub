@@ -1,4 +1,3 @@
-
 // Judge0 API endpoints
 const API_SUBMISSION_URL = "https://judge0.arenahq-mitwpu.in/submissions";
 
@@ -152,21 +151,30 @@ export const fetchQuestionsByContest = async (contestId: string) => {
     
     // Process each question to get complete data
     const questions = await Promise.all(questionsData.map(async (q) => {
-      // Determine if this is an MCQ question (check for a special pattern in description)
-      const isMcq = q.description.includes('[MCQ]');
-      
-      if (isMcq) {
-        // Extract MCQ data from description
-        const mcqData = parseMcqDescription(q.description);
+      // Check if this is an MCQ question
+      if (q.question_type === 'mcq') {
+        // Fetch MCQ options
+        const { data: optionsData, error: optionsError } = await supabase
+          .from('mcq_options')
+          .select('*')
+          .eq('question_id', q.id);
+        
+        if (optionsError) throw optionsError;
+        
+        const options = optionsData?.map(opt => ({
+          id: opt.id,
+          text: opt.option_text,
+          isCorrect: opt.is_correct
+        })) || [];
         
         return {
           id: q.id,
           title: q.title,
-          description: mcqData.description,
-          imageUrl: mcqData.imageUrl,
-          options: mcqData.options,
-          type: 'mcq' as const, // Use const assertion to ensure literal type
-          points: mcqData.points || 10,
+          description: q.description,
+          imageUrl: q.image_url,
+          options: options,
+          type: 'mcq' as const,
+          points: q.points || 10,
           testCases: [] // Empty array for type compatibility
         };
       } else {
@@ -210,7 +218,7 @@ export const fetchQuestionsByContest = async (contestId: string) => {
           examples,
           constraints,
           testCases,
-          type: 'coding' as const // Use const assertion to ensure literal type
+          type: 'coding' as const
         };
       }
     }));
@@ -223,7 +231,8 @@ export const fetchQuestionsByContest = async (contestId: string) => {
   }
 };
 
-// Helper function to parse MCQ description
+// Helper function to parse MCQ description - No longer needed with the new DB schema
+// We'll keep it for backward compatibility
 function parseMcqDescription(rawDescription: string) {
   // Format: [MCQ]description[/MCQ][IMAGE]url[/IMAGE][OPTIONS]option1|true,option2|false,option3|false,option4|false[/OPTIONS][POINTS]10[/POINTS]
   

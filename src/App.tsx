@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -34,12 +33,13 @@ const App = () => (
       <BrowserRouter>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
-            <Route path="/" element={<Register />} />
+            <Route path="/" element={<Index />} />
             <Route path="/register" element={<Register />} />
             <Route path="/instructions" element={<Instructions />} />
             <Route path="/contest" element={<Contest />} />
+            <Route path="/contest/:contestCode" element={<Contest />} />
+            <Route path="/contest/:contestCode/:prn" element={<Contest />} />
             <Route path="/summary" element={<Summary />} />
-            <Route path="/:contestCode/:prn?" element={<Contest />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
