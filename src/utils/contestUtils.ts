@@ -135,67 +135,137 @@ export const fetchContestByCode = async (code: string) => {
 
 // Fetch questions for a specific contest
 export const fetchQuestionsByContest = async (contestId: string) => {
-  const { data: questionsData, error: questionsError } = await supabase
-    .from('contest_questions')
-    .select('*')
-    .eq('contest_id', contestId);
-  
-  if (questionsError || !questionsData) {
-    console.error("Error fetching questions:", questionsError);
+  try {
+    const supabase = createClient();
+    
+    // Fetch basic question data
+    const { data: questionsData, error } = await supabase
+      .from('contest_questions')
+      .select('*')
+      .eq('contest_id', contestId);
+    
+    if (error) throw error;
+    if (!questionsData) return [];
+    
+    // Process each question to get complete data
+    const questions = await Promise.all(questionsData.map(async (q) => {
+      // Determine if this is an MCQ question (check for a special pattern in description)
+      const isMcq = q.description.includes('[MCQ]');
+      
+      if (isMcq) {
+        // Extract MCQ data from description
+        const mcqData = parseMcqDescription(q.description);
+        
+        return {
+          id: q.id,
+          title: q.title,
+          description: mcqData.description,
+          imageUrl: mcqData.imageUrl,
+          options: mcqData.options,
+          type: 'mcq',
+          points: mcqData.points || 10
+        };
+      } else {
+        // Regular coding question
+        const [examples, constraints, testCases] = await Promise.all([
+          // Fetch examples
+          supabase
+            .from('examples')
+            .select('*')
+            .eq('question_id', q.id)
+            .then(({ data, error }) => {
+              if (error) throw error;
+              return data || [];
+            }),
+            
+          // Fetch constraints
+          supabase
+            .from('constraints')
+            .select('*')
+            .eq('question_id', q.id)
+            .then(({ data, error }) => {
+              if (error) throw error;
+              return data?.map(c => c.description) || [];
+            }),
+            
+          // Fetch test cases
+          supabase
+            .from('test_cases')
+            .select('*')
+            .eq('question_id', q.id)
+            .then(({ data, error }) => {
+              if (error) throw error;
+              return data || [];
+            })
+        ]);
+        
+        return {
+          id: q.id,
+          title: q.title,
+          description: q.description,
+          examples,
+          constraints,
+          testCases,
+          type: 'coding'
+        };
+      }
+    }));
+    
+    return questions;
+  } catch (error) {
+    console.error("Error fetching questions:", error);
+    toast.error("Failed to load questions");
     return [];
   }
-  
-  // Get all related data for each question
-  const questions = await Promise.all(questionsData.map(async (question) => {
-    // Fetch examples
-    const { data: examples, error: examplesError } = await supabase
-      .from('examples')
-      .select('*')
-      .eq('question_id', question.id);
-    
-    if (examplesError) {
-      console.error(`Error fetching examples for question ${question.id}:`, examplesError);
-      return null;
-    }
-    
-    // Fetch constraints
-    const { data: constraints, error: constraintsError } = await supabase
-      .from('constraints')
-      .select('*')
-      .eq('question_id', question.id);
-    
-    if (constraintsError) {
-      console.error(`Error fetching constraints for question ${question.id}:`, constraintsError);
-      return null;
-    }
-    
-    // Fetch test cases
-    const { data: testCases, error: testCasesError } = await supabase
-      .from('test_cases')
-      .select('*')
-      .eq('question_id', question.id);
-    
-    if (testCasesError) {
-      console.error(`Error fetching test cases for question ${question.id}:`, testCasesError);
-      return null;
-    }
-    
-    // Map constraint objects to constraint strings
-    const constraintStrings = constraints ? constraints.map(constraint => constraint.description) : [];
-    
-    return {
-      id: question.id,
-      title: question.title,
-      description: question.description,
-      examples: examples || [],
-      constraints: constraintStrings,
-      testCases: testCases || []
-    };
-  }));
-  
-  // Filter out any null values (questions that had errors fetching related data)
-  return questions.filter(question => question !== null);
 };
+
+// Helper function to parse MCQ description
+function parseMcqDescription(rawDescription: string) {
+  // Format: [MCQ]description[/MCQ][IMAGE]url[/IMAGE][OPTIONS]option1|true,option2|false,option3|false,option4|false[/OPTIONS][POINTS]10[/POINTS]
+  
+  let description = '';
+  let imageUrl = '';
+  let options = [];
+  let points = 10;
+  
+  // Extract description
+  const descriptionMatch = rawDescription.match(/\[MCQ\](.*?)\[\/MCQ\]/s);
+  if (descriptionMatch) {
+    description = descriptionMatch[1].trim();
+  }
+  
+  // Extract image URL if present
+  const imageMatch = rawDescription.match(/\[IMAGE\](.*?)\[\/IMAGE\]/);
+  if (imageMatch) {
+    imageUrl = imageMatch[1].trim();
+  }
+  
+  // Extract options
+  const optionsMatch = rawDescription.match(/\[OPTIONS\](.*?)\[\/OPTIONS\]/);
+  if (optionsMatch) {
+    options = optionsMatch[1].split(',').map((opt, index) => {
+      const [text, isCorrect] = opt.split('|');
+      return {
+        id: `opt-${index}`,
+        text: text.trim(),
+        isCorrect: isCorrect.trim() === 'true'
+      };
+    });
+  }
+  
+  // Extract points
+  const pointsMatch = rawDescription.match(/\[POINTS\](.*?)\[\/POINTS\]/);
+  if (pointsMatch) {
+    points = parseInt(pointsMatch[1].trim());
+  }
+  
+  return {
+    description,
+    imageUrl,
+    options,
+    points
+  };
+}
 
 // Fetch all questions (legacy method, now calls fetchQuestionsByContest with the first contest)
 export const fetchQuestions = async () => {

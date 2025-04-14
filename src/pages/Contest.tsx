@@ -9,6 +9,9 @@ import TestCaseResult from '@/components/TestCaseResult';
 import FullscreenAlert from '@/components/FullscreenAlert';
 import ResultsDialog from '@/components/ResultsDialog';
 import { useFullscreen } from '@/hooks/useFullscreen';
+import QuestionsSidebar from '@/components/QuestionsSidebar';
+import MCQQuestion from '@/components/MCQQuestion';
+import { Question, QuestionType } from '@/types/questions';
 import { 
   fetchQuestionsByContest,
   fetchContestByCode,
@@ -55,12 +58,14 @@ const Contest = () => {
   const [submittedQuestions, setSubmittedQuestions] = useState<Record<number, boolean>>({});
   const [questionTemplates, setQuestionTemplates] = useState<Record<number, Record<number, string>>>({});
   const [selectedLanguages, setSelectedLanguages] = useState<Record<number, number>>({});
-  const [questions, setQuestions] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [contestInfo, setContestInfo] = useState<ContestInfo | null>(null);
   const [userInfo, setUserInfo] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPractice, setIsPractice] = useState(false);
   const [resultsDialogOpen, setResultsDialogOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mcqResults, setMcqResults] = useState<Record<number, { isCorrect: boolean; selected: string; points: number }>>({});
   const [practiceResults, setPracticeResults] = useState<{
     results: TestResult[],
     score: number,
@@ -406,128 +411,158 @@ const Contest = () => {
   const handleSubmit = async (code: string, languageId: number) => {
     if (!currentQuestion || !contestInfo) return;
     
-    setIsProcessing(true);
-    toast.info("Submitting your solution...");
-    
-    try {
-      const allTestCases = currentQuestion.testCases;
-      const results = [];
+    if (currentQuestion.type === 'coding') {
+      setIsProcessing(true);
+      toast.info("Submitting your solution...");
       
-      for (const testCase of allTestCases) {
-        const stdin = testCase.input;
-        const expectedOutput = testCase.expected;
-        const token = await submitCode(code, languageId, stdin, expectedOutput);
+      try {
+        const allTestCases = currentQuestion.testCases;
+        const results = [];
         
-        let attempts = 0;
-        let result;
-        
-        while (attempts < 10) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          try {
-            result = await getSubmissionResult(token);
-            if (result.status && result.status.id >= 3) {
-              break;
-            }
-          } catch (error) {
-            console.error("Error checking submission status:", error);
-          }
-          attempts++;
-        }
-        
-        if (result) {
-          const isSuccess = 
-            result.status.id === 3 &&
-            (result.stdout?.trim() === expectedOutput.trim());
+        for (const testCase of allTestCases) {
+          const stdin = testCase.input;
+          const expectedOutput = testCase.expected;
+          const token = await submitCode(code, languageId, stdin, expectedOutput);
           
-          results.push({
-            testCase,
-            result,
-            isSuccess
-          });
-        } else {
-          results.push({
-            testCase,
-            result: null,
-            isSuccess: false
-          });
-        }
-      }
-      
-      const score = results.reduce((total, { testCase, isSuccess }) => {
-        return total + (isSuccess ? (testCase.points || 0) : 0);
-      }, 0);
-
-      const maxScore = allTestCases.reduce((total, tc: any) => total + (tc.points || 0), 0);
-      
-      if (isPractice) {
-        const formattedResults = results.map((r, idx) => ({
-          index: idx + 1,
-          status: r.isSuccess ? 'success' as const : 'error' as const,
-          input: r.testCase.input,
-          expected: r.testCase.expected,
-          output: r.result?.stdout || r.result?.stderr || r.result?.compile_output,
-          points: r.testCase.points,
-          visible: r.testCase.visible
-        }));
-        
-        setPracticeResults({
-          results: formattedResults,
-          score,
-          maxScore
-        });
-        
-        setResultsDialogOpen(true);
-        
-        await saveContestResults(
-          contestInfo.id,
-          null,
-          score,
-          false,
-          [{
-            questionId: currentQuestion.id,
-            languageId,
-            code,
-            score
-          }],
-          prn
-        );
-      } else {
-        setSubmittedQuestions(prev => ({
-          ...prev,
-          [currentQuestion.id]: true
-        }));
-        
-        const storedSubmissions = JSON.parse(sessionStorage.getItem('contestSubmissions') || '{}');
-        const updatedSubmissions = {
-          ...storedSubmissions,
-          [currentQuestion.id]: {
-            code,
-            languageId,
-            timestamp: Date.now(),
-            score,
-            results: results.map(r => ({
-              testCaseId: r.testCase.input,
-              passed: r.isSuccess,
-              points: r.isSuccess ? r.testCase.points : 0
-            }))
+          let attempts = 0;
+          let result;
+          
+          while (attempts < 10) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            try {
+              result = await getSubmissionResult(token);
+              if (result.status && result.status.id >= 3) {
+                break;
+              }
+            } catch (error) {
+              console.error("Error checking submission status:", error);
+            }
+            attempts++;
           }
-        };
-        
-        sessionStorage.setItem('contestSubmissions', JSON.stringify(updatedSubmissions));
-        
-        toast.success("Solution submitted successfully!");
-        
-        if (currentQuestionIndex < questions.length - 1) {
-          setTimeout(() => {
-            setCurrentQuestionIndex(currentQuestionIndex + 1);
-          }, 1000);
+          
+          if (result) {
+            const isSuccess = 
+              result.status.id === 3 &&
+              (result.stdout?.trim() === expectedOutput.trim());
+            
+            results.push({
+              testCase,
+              result,
+              isSuccess
+            });
+          } else {
+            results.push({
+              testCase,
+              result: null,
+              isSuccess: false
+            });
+          }
         }
+        
+        const score = results.reduce((total, { testCase, isSuccess }) => {
+          return total + (isSuccess ? (testCase.points || 0) : 0);
+        }, 0);
+
+        const maxScore = allTestCases.reduce((total, tc: any) => total + (tc.points || 0), 0);
+        
+        if (isPractice) {
+          const formattedResults = results.map((r, idx) => ({
+            index: idx + 1,
+            status: r.isSuccess ? 'success' as const : 'error' as const,
+            input: r.testCase.input,
+            expected: r.testCase.expected,
+            output: r.result?.stdout || r.result?.stderr || r.result?.compile_output,
+            points: r.testCase.points,
+            visible: r.testCase.visible
+          }));
+          
+          setPracticeResults({
+            results: formattedResults,
+            score,
+            maxScore
+          });
+          
+          setResultsDialogOpen(true);
+          
+          await saveContestResults(
+            contestInfo.id,
+            null,
+            score,
+            false,
+            [{
+              questionId: currentQuestion.id,
+              languageId,
+              code,
+              score
+            }],
+            prn
+          );
+        } else {
+          setSubmittedQuestions(prev => ({
+            ...prev,
+            [currentQuestion.id]: true
+          }));
+          
+          const storedSubmissions = JSON.parse(sessionStorage.getItem('contestSubmissions') || '{}');
+          const updatedSubmissions = {
+            ...storedSubmissions,
+            [currentQuestion.id]: {
+              code,
+              languageId,
+              timestamp: Date.now(),
+              score,
+              results: results.map(r => ({
+                testCaseId: r.testCase.input,
+                passed: r.isSuccess,
+                points: r.isSuccess ? r.testCase.points : 0
+              }))
+            }
+          };
+          
+          sessionStorage.setItem('contestSubmissions', JSON.stringify(updatedSubmissions));
+          
+          toast.success("Solution submitted successfully!");
+          
+          if (currentQuestionIndex < questions.length - 1) {
+            setTimeout(() => {
+              setCurrentQuestionIndex(currentQuestionIndex + 1);
+            }, 1000);
+          }
+        }
+      } catch (error) {
+        console.error("Error submitting solution:", error);
+        toast.error("Error submitting solution. Please try again.");
+      } finally {
+        setIsProcessing(false);
       }
-    } catch (error) {
-      console.error("Error submitting solution:", error);
-      toast.error("Error submitting solution. Please try again.");
-    } finally {
-      setIsProcessing(false);
+    }
+  };
+  
+  const handleMcqSubmit = (questionId: number, selectedOption: string, isCorrect: boolean, points: number) => {
+    setMcqResults(prev => ({
+      ...prev,
+      [questionId]: { isCorrect, selected: selectedOption, points }
+    }));
+    
+    const storedSubmissions = JSON.parse(sessionStorage.getItem('contestSubmissions') || '{}');
+    const updatedSubmissions = {
+      ...storedSubmissions,
+      [questionId]: {
+        mcq: true,
+        selectedOption,
+        isCorrect,
+        points,
+        timestamp: Date.now()
+      }
+    };
+    
+    sessionStorage.setItem('contestSubmissions', JSON.stringify(updatedSubmissions));
+    toast.success("Answer submitted!");
+    
+    if (currentQuestionIndex < questions.length - 1 && !isPractice) {
+      setTimeout(() => {
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
+      }, 1500);
     }
   };
   
@@ -563,27 +598,54 @@ const Contest = () => {
         const submission = storedSubmissions[question.id];
         
         if (submission) {
-          results[question.id] = {
-            submitted: true,
-            score: submission.score || 0,
-            maxScore: question.testCases.reduce((sum: number, tc: any) => sum + (tc.points || 0), 0),
-            languageId: submission.languageId,
-            testResults: submission.results
-          };
-          totalScore += submission.score || 0;
-          
-          submissionsArray.push({
-            questionId: question.id,
-            languageId: submission.languageId,
-            code: submission.code,
-            score: submission.score || 0
-          });
+          if (question.type === 'coding') {
+            results[question.id] = {
+              submitted: true,
+              score: submission.score || 0,
+              maxScore: question.testCases.reduce((sum: number, tc: any) => sum + (tc.points || 0), 0),
+              languageId: submission.languageId,
+              testResults: submission.results
+            };
+            totalScore += submission.score || 0;
+            
+            submissionsArray.push({
+              questionId: question.id,
+              languageId: submission.languageId,
+              code: submission.code,
+              score: submission.score || 0
+            });
+          } else if (question.type === 'mcq') {
+            results[question.id] = {
+              submitted: true,
+              score: submission.points || 0,
+              maxScore: question.points,
+              selectedOption: submission.selectedOption,
+              isCorrect: submission.isCorrect
+            };
+            totalScore += submission.points || 0;
+            
+            submissionsArray.push({
+              questionId: question.id,
+              mcq: true,
+              selectedOption: submission.selectedOption,
+              isCorrect: submission.isCorrect,
+              score: submission.points || 0
+            });
+          }
         } else {
-          results[question.id] = {
-            submitted: false,
-            score: 0,
-            maxScore: question.testCases.reduce((sum: number, tc: any) => sum + (tc.points || 0), 0)
-          };
+          if (question.type === 'coding') {
+            results[question.id] = {
+              submitted: false,
+              score: 0,
+              maxScore: question.testCases.reduce((sum: number, tc: any) => sum + (tc.points || 0), 0)
+            };
+          } else if (question.type === 'mcq') {
+            results[question.id] = {
+              submitted: false,
+              score: 0,
+              maxScore: question.points
+            };
+          }
         }
       });
       
@@ -613,6 +675,10 @@ const Contest = () => {
       toast.error("Error saving contest results. Your results may not be properly recorded.");
       navigate('/summary');
     }
+  };
+  
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
   };
   
   if (isLoading) {
@@ -678,17 +744,40 @@ const Contest = () => {
         </div>
       </header>
       
-      <main className="flex-grow flex overflow-hidden">
-        <div className="w-1/2 contest-panel-left">
+      <QuestionsSidebar 
+        questions={questions}
+        currentQuestionIndex={currentQuestionIndex}
+        submittedQuestions={submittedQuestions}
+        mcqResults={mcqResults}
+        onQuestionSelect={setCurrentQuestionIndex}
+        isOpen={sidebarOpen}
+        onToggle={toggleSidebar}
+      />
+      
+      <main className={`flex-grow flex overflow-hidden transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-0'}`}>
+        <div className="w-1/2 contest-panel-left p-6 overflow-y-auto">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <span className="bg-contest-red/10 text-contest-red text-xs font-medium px-2 py-1 rounded mr-2">
                 Question {currentQuestionIndex + 1}/{questions.length}
               </span>
-              {submittedQuestions[currentQuestion.id] && !isPractice && (
+              {currentQuestion.type === 'coding' && submittedQuestions[currentQuestion.id] && !isPractice && (
                 <span className="flex items-center text-xs text-contest-green bg-contest-green/10 px-2 py-1 rounded">
                   <CheckCircle className="h-3 w-3 mr-1" />
                   Submitted
+                </span>
+              )}
+              {currentQuestion.type === 'mcq' && mcqResults[currentQuestion.id] && (
+                <span className={`flex items-center text-xs ${
+                  mcqResults[currentQuestion.id].isCorrect ? 
+                    'text-contest-green bg-contest-green/10' : 
+                    'text-contest-red bg-contest-red/10'
+                } px-2 py-1 rounded`}>
+                  {mcqResults[currentQuestion.id].isCorrect ? 
+                    <CheckCircle className="h-3 w-3 mr-1" /> : 
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                  }
+                  {mcqResults[currentQuestion.id].isCorrect ? 'Correct' : 'Incorrect'}
                 </span>
               )}
             </div>
@@ -721,113 +810,140 @@ const Contest = () => {
           
           <h1 className="text-2xl font-bold mb-4">{currentQuestion.title}</h1>
           
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium mb-2">Description</h3>
-              <div className="text-sm whitespace-pre-line">
-                {currentQuestion.description}
+          {currentQuestion.type === 'coding' ? (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium mb-2">Description</h3>
+                <div className="text-sm whitespace-pre-line">
+                  {currentQuestion.description}
+                </div>
               </div>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-medium mb-2">Examples</h3>
-              <div className="space-y-4">
-                {currentQuestion.examples.map((example: any, index: number) => (
-                  <div key={index} className="bg-gray-50 rounded-md p-4 border border-gray-100">
-                    <div className="mb-2">
-                      <span className="text-xs font-medium text-gray-500">Input:</span>
-                      <pre className="mt-1 text-sm font-mono bg-white p-2 rounded border border-gray-100">
-                        {example.input}
-                      </pre>
-                    </div>
-                    <div className="mb-2">
-                      <span className="text-xs font-medium text-gray-500">Output:</span>
-                      <pre className="mt-1 text-sm font-mono bg-white p-2 rounded border border-gray-100">
-                        {example.output}
-                      </pre>
-                    </div>
-                    {example.explanation && (
-                      <div>
-                        <span className="text-xs font-medium text-gray-500">Explanation:</span>
-                        <p className="mt-1 text-sm">
-                          {example.explanation}
-                        </p>
+              
+              <div>
+                <h3 className="text-lg font-medium mb-2">Examples</h3>
+                <div className="space-y-4">
+                  {currentQuestion.examples.map((example, index) => (
+                    <div key={index} className="bg-gray-50 rounded-md p-4 border border-gray-100">
+                      <div className="mb-2">
+                        <span className="text-xs font-medium text-gray-500">Input:</span>
+                        <pre className="mt-1 text-sm font-mono bg-white p-2 rounded border border-gray-100">
+                          {example.input}
+                        </pre>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      <div className="mb-2">
+                        <span className="text-xs font-medium text-gray-500">Output:</span>
+                        <pre className="mt-1 text-sm font-mono bg-white p-2 rounded border border-gray-100">
+                          {example.output}
+                        </pre>
+                      </div>
+                      {example.explanation && (
+                        <div>
+                          <span className="text-xs font-medium text-gray-500">Explanation:</span>
+                          <p className="mt-1 text-sm">
+                            {example.explanation}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="text-lg font-medium mb-2">Constraints</h3>
+                <ul className="list-disc pl-5 text-sm space-y-1">
+                  {currentQuestion.constraints.map((constraint, index) => (
+                    <li key={index}>{constraint}</li>
+                  ))}
+                </ul>
               </div>
             </div>
-            
-            <div>
-              <h3 className="text-lg font-medium mb-2">Constraints</h3>
-              <ul className="list-disc pl-5 text-sm space-y-1">
-                {currentQuestion.constraints.map((constraint: string, index: number) => (
-                  <li key={index}>{constraint}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          ) : (
+            <MCQQuestion
+              question={currentQuestion}
+              onSubmit={handleMcqSubmit}
+              isSubmitted={!!mcqResults[currentQuestion.id]}
+              submittedOption={mcqResults[currentQuestion.id]?.selected}
+            />
+          )}
         </div>
         
-        <div className="w-1/2 contest-panel-right">
-          <CodeEditor 
-            initialCode={userCode[currentQuestion.id] || ''}
-            onRun={handleRun}
-            onSubmit={handleSubmit}
-            isProcessing={isProcessing}
-            languageTemplates={questionTemplates[currentQuestion.id] || {}}
-            questionId={currentQuestion.id}
-            onLanguageChange={(languageId) => handleLanguageChange(currentQuestion.id, languageId)}
-            onCodeChange={(code) => handleCodeChange(currentQuestion.id, code)}
-          />
-          
-          <div className="mt-6">
-            <h3 className="text-lg font-medium mb-3">Test Results</h3>
+        {currentQuestion.type === 'coding' ? (
+          <div className="w-1/2 contest-panel-right">
+            <CodeEditor 
+              initialCode={userCode[currentQuestion.id] || ''}
+              onRun={handleRun}
+              onSubmit={handleSubmit}
+              isProcessing={isProcessing}
+              languageTemplates={questionTemplates[currentQuestion.id] || {}}
+              questionId={currentQuestion.id}
+              onLanguageChange={(languageId) => handleLanguageChange(currentQuestion.id, languageId)}
+              onCodeChange={(code) => handleCodeChange(currentQuestion.id, code)}
+            />
             
-            {isProcessing && (
-              <div className="bg-red-50 rounded-md p-4 flex items-center text-contest-red mb-3">
-                <div className="h-4 w-4 rounded-full border-2 border-contest-red/30 border-t-contest-red animate-spin mr-3"></div>
-                <p className="text-sm">Evaluating your solution...</p>
-              </div>
-            )}
-            
-            <div className="space-y-3">
-              {!testResults[currentQuestion.id] || testResults[currentQuestion.id].length === 0 ? (
-                <div className="bg-gray-50 rounded-md p-6 border border-gray-100 text-center">
-                  <p className="text-muted-foreground text-sm">
-                    Run your code to see test results
-                  </p>
+            <div className="mt-6">
+              <h3 className="text-lg font-medium mb-3">Test Results</h3>
+              
+              {isProcessing && (
+                <div className="bg-red-50 rounded-md p-4 flex items-center text-contest-red mb-3">
+                  <div className="h-4 w-4 rounded-full border-2 border-contest-red/30 border-t-contest-red animate-spin mr-3"></div>
+                  <p className="text-sm">Evaluating your solution...</p>
                 </div>
-              ) : (
-                testResults[currentQuestion.id].map((result, index) => (
-                  <TestCaseResult
-                    key={index}
-                    index={index + 1}
-                    status={result.status}
-                    input={result.input}
-                    expected={result.expected}
-                    output={result.output}
-                    message={result.message}
-                    points={result.points}
-                    visible={result.visible}
-                  />
-                ))
+              )}
+              
+              <div className="space-y-3">
+                {!testResults[currentQuestion.id] || testResults[currentQuestion.id].length === 0 ? (
+                  <div className="bg-gray-50 rounded-md p-6 border border-gray-100 text-center">
+                    <p className="text-muted-foreground text-sm">
+                      Run your code to see test results
+                    </p>
+                  </div>
+                ) : (
+                  testResults[currentQuestion.id].map((result, index) => (
+                    <TestCaseResult
+                      key={index}
+                      index={index + 1}
+                      status={result.status}
+                      input={result.input}
+                      expected={result.expected}
+                      output={result.output}
+                      message={result.message}
+                      points={result.points}
+                      visible={result.visible}
+                    />
+                  ))
+                )}
+              </div>
+              
+              {currentQuestion.testCases.some((tc) => !tc.visible) && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-100">
+                  <div className="flex items-start">
+                    <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 mr-2 flex-shrink-0" />
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium">Note:</span> There are {currentQuestion.testCases.filter((tc) => !tc.visible).length} hidden test cases that will be evaluated when you submit your solution.
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
-            
-            {currentQuestion.testCases.some((tc: any) => !tc.visible) && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-100">
-                <div className="flex items-start">
-                  <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 mr-2 flex-shrink-0" />
-                  <p className="text-sm text-muted-foreground">
-                    <span className="font-medium">Note:</span> There are {currentQuestion.testCases.filter((tc: any) => !tc.visible).length} hidden test cases that will be evaluated when you submit your solution.
-                  </p>
-                </div>
+          </div>
+        ) : (
+          <div className="w-1/2 contest-panel-right bg-gray-50 flex items-center justify-center">
+            {currentQuestion.imageUrl ? (
+              <div className="p-6 bg-white rounded-lg shadow-sm border border-gray-100 max-w-md">
+                <img 
+                  src={currentQuestion.imageUrl} 
+                  alt="Question illustration" 
+                  className="max-h-96 mx-auto"
+                />
+              </div>
+            ) : (
+              <div className="text-center text-gray-400">
+                <p>No additional information for this question</p>
               </div>
             )}
           </div>
-        </div>
+        )}
       </main>
 
       {isPractice && (
