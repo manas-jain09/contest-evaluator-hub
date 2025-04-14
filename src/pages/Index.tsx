@@ -3,11 +3,9 @@ import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
-import { createMockContest } from "@/utils/mockContest";
-import { toast } from '@/utils/toast'; // Use the existing toast utility
 
 const Index = () => {
+  // Subtle animations when the page loads
   useEffect(() => {
     const elements = document.querySelectorAll('.animate-on-load');
     
@@ -19,49 +17,16 @@ const Index = () => {
     });
   }, []);
 
-  const navigate = useNavigate();
-
-  const handleCreateMockContest = async () => {
-    const mockContestId = await createMockContest();
-    if (mockContestId) {
-      toast.success("Mock contest created. You'll be redirected to the practice contest.");
-      setTimeout(() => {
-        navigate('/contest/practice123');
-      }, 1500);
-    }
-  };
-
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-8">
-      <header className="mb-12 text-center">
-        <h1 className="text-4xl font-bold mb-4">Code Arena</h1>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Welcome to Code Arena, a platform for coding assessments and practice.
-        </p>
+    <div className="min-h-screen flex flex-col">
+      <header className="border-b border-gray-100 bg-white">
+        <div className="container mx-auto py-4 px-6">
+          <div className="flex justify-between items-center">
+            <div className="text-xl font-semibold">Arena Contest</div>
+          </div>
+        </div>
       </header>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-        <div className="bg-white rounded-lg shadow-md p-6 border border-gray-100">
-          <h2 className="text-2xl font-semibold mb-4">Take an Assessment</h2>
-          <p className="text-gray-600 mb-6">
-            Enter your contest code and details to start your assessment.
-          </p>
-          <Button onClick={() => navigate('/register')} className="w-full bg-contest-red hover:bg-contest-red/90">
-            Enter Contest
-          </Button>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-md p-6 border border-gray-100">
-          <h2 className="text-2xl font-semibold mb-4">Practice Mode</h2>
-          <p className="text-gray-600 mb-6">
-            Try our practice mode with sample coding and MCQ questions.
-          </p>
-          <Button onClick={handleCreateMockContest} className="w-full">
-            Start Practice
-          </Button>
-        </div>
-      </div>
-
+      
       <main className="flex-grow flex flex-col items-center justify-center p-6">
         <div className="max-w-3xl w-full text-center space-y-8">
           <div className="space-y-4">

@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Award, CheckCircle, AlertTriangle, XCircle, AlertCircle } from 'lucide-react';
+import { Home, Award, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { fetchQuestionsByContest } from '@/utils/contestUtils';
@@ -40,33 +41,41 @@ const Summary = () => {
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
+    // Load user info, contest info, and results
     const loadData = async () => {
       try {
         setIsLoading(true);
         
+        // Get user info
         const userData = sessionStorage.getItem('contestUser');
         if (userData) {
           setUserInfo(JSON.parse(userData));
         }
         
+        // Get contest info
         const contestData = sessionStorage.getItem('contestInfo');
         if (contestData) {
           const contestInfo = JSON.parse(contestData);
           setContestInfo(contestInfo);
           
+          // Load questions for this contest
           const loadedQuestions = await fetchQuestionsByContest(contestInfo.id);
           setQuestions(loadedQuestions);
         }
         
+        // Check for termination flag in URL
         const searchParams = new URLSearchParams(location.search);
         if (searchParams.get('terminated') === 'true') {
           setIsTerminated(true);
         }
         
+        // Get contest results
         const resultData = sessionStorage.getItem('contestResults');
         if (resultData) {
           setResults(JSON.parse(resultData));
         } else {
+          // If no results but we're on the summary page, 
+          // either contest was terminated or user navigated here directly
           if (!isTerminated) {
             navigate('/');
           }
@@ -81,79 +90,6 @@ const Summary = () => {
     loadData();
   }, [navigate, location.search]);
   
-  const renderQuestionResult = (questionId: string, result: any) => {
-    if (!result) return null;
-    
-    return (
-      <div className="border rounded-md overflow-hidden mb-4">
-        <div className="bg-gray-50 border-b p-3">
-          <div className="flex justify-between items-center">
-            <h3 className="font-medium">Question {parseInt(questionId) + 1}</h3>
-            <div className="flex items-center">
-              <span className="text-sm mr-2">Score:</span>
-              <span className="bg-contest-red/10 text-contest-red px-2 py-1 rounded text-sm font-medium">
-                {result.score} / {result.maxScore}
-              </span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="p-4">
-          {!result.submitted ? (
-            <div className="flex items-center text-amber-500">
-              <AlertCircle size={18} className="mr-2" />
-              <span>Not submitted</span>
-            </div>
-          ) : result.mcq ? (
-            <div>
-              <div className="flex items-center mb-3">
-                {result.isCorrect ? (
-                  <div className="flex items-center text-contest-green">
-                    <CheckCircle size={18} className="mr-2" />
-                    <span>Correct answer</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center text-contest-red">
-                    <XCircle size={18} className="mr-2" />
-                    <span>Incorrect answer</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center text-contest-green">
-                <CheckCircle size={18} className="mr-2" />
-                <span>Submitted successfully</span>
-              </div>
-              
-              {result.testResults && (
-                <div className="mt-3">
-                  <h4 className="text-sm font-medium mb-2">Test Cases:</h4>
-                  <div className="space-y-2">
-                    {result.testResults.map((testResult: any, index: number) => (
-                      <div 
-                        key={index}
-                        className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm"
-                      >
-                        <span>Test case {index + 1}</span>
-                        {testResult.passed ? (
-                          <span className="text-contest-green">Passed (+{testResult.points} points)</span>
-                        ) : (
-                          <span className="text-contest-red">Failed</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

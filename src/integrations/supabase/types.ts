@@ -44,9 +44,6 @@ export type Database = {
           created_at: string
           description: string
           id: number
-          image_url: string | null
-          points: number | null
-          question_type: string
           title: string
         }
         Insert: {
@@ -54,9 +51,6 @@ export type Database = {
           created_at?: string
           description: string
           id?: number
-          image_url?: string | null
-          points?: number | null
-          question_type?: string
           title: string
         }
         Update: {
@@ -64,9 +58,6 @@ export type Database = {
           created_at?: string
           description?: string
           id?: number
-          image_url?: string | null
-          points?: number | null
-          question_type?: string
           title?: string
         }
         Relationships: [
@@ -175,38 +166,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "language_templates_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "contest_questions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      mcq_options: {
-        Row: {
-          created_at: string
-          id: string
-          is_correct: boolean
-          option_text: string
-          question_id: number
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_correct?: boolean
-          option_text: string
-          question_id: number
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_correct?: boolean
-          option_text?: string
-          question_id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "mcq_options_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "contest_questions"
