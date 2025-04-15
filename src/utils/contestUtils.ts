@@ -243,6 +243,7 @@ export const saveContestResults = async (
       // If we have a PRN, save the result with minimal info
       if (submissionPrn) {
         const resultData = {
+          id: crypto.randomUUID(), // Generate UUID for id field
           contest_id: contestId,
           prn: submissionPrn,
           name: "Practice User",
