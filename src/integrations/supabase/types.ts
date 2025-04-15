@@ -9,138 +9,26 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      badge_types: {
-        Row: {
-          background_color: string
-          created_at: string
-          description: string | null
-          icon_name: string
-          id: string
-          name: string
-          text_color: string
-        }
-        Insert: {
-          background_color: string
-          created_at?: string
-          description?: string | null
-          icon_name: string
-          id?: string
-          name: string
-          text_color: string
-        }
-        Update: {
-          background_color?: string
-          created_at?: string
-          description?: string | null
-          icon_name?: string
-          id?: string
-          name?: string
-          text_color?: string
-        }
-        Relationships: []
-      }
-      certificates: {
-        Row: {
-          created_at: string
-          credential_url: string | null
-          expiry_date: string | null
-          id: string
-          issue_date: string
-          issuer: string
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          credential_url?: string | null
-          expiry_date?: string | null
-          id?: string
-          issue_date: string
-          issuer: string
-          title: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          credential_url?: string | null
-          expiry_date?: string | null
-          id?: string
-          issue_date?: string
-          issuer?: string
-          title?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "certificates_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      constraints: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          id: number
-          question_id: number | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          id: number
-          question_id?: number | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          id?: number
-          question_id?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "constraints_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "contest_questions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       contest_questions: {
         Row: {
           contest_id: string | null
           created_at: string | null
           description: string | null
-          id: number
-          image_url: string | null
-          points: number | null
-          question_type: string | null
+          id: string
           title: string | null
         }
         Insert: {
           contest_id?: string | null
           created_at?: string | null
           description?: string | null
-          id: number
-          image_url?: string | null
-          points?: number | null
-          question_type?: string | null
+          id: string
           title?: string | null
         }
         Update: {
           contest_id?: string | null
           created_at?: string | null
           description?: string | null
-          id?: number
-          image_url?: string | null
-          points?: number | null
-          question_type?: string | null
+          id?: string
           title?: string | null
         }
         Relationships: [
@@ -193,26 +81,26 @@ export type Database = {
         Row: {
           created_at: string | null
           explanation: string | null
-          id: number
+          id: string
           input: string | null
           output: string | null
-          question_id: number | null
+          question_id: string | null
         }
         Insert: {
           created_at?: string | null
           explanation?: string | null
-          id: number
+          id: string
           input?: string | null
           output?: string | null
-          question_id?: number | null
+          question_id?: string | null
         }
         Update: {
           created_at?: string | null
           explanation?: string | null
-          id?: number
+          id?: string
           input?: string | null
           output?: string | null
-          question_id?: number | null
+          question_id?: string | null
         }
         Relationships: [
           {
@@ -227,23 +115,23 @@ export type Database = {
       language_templates: {
         Row: {
           created_at: string | null
-          id: number | null
+          id: string
           name: string | null
-          question_id: number | null
+          question_id: string | null
           template: string | null
         }
         Insert: {
           created_at?: string | null
-          id?: number | null
+          id: string
           name?: string | null
-          question_id?: number | null
+          question_id?: string | null
           template?: string | null
         }
         Update: {
           created_at?: string | null
-          id?: number | null
+          id?: string
           name?: string | null
-          question_id?: number | null
+          question_id?: string | null
           template?: string | null
         }
         Relationships: [
@@ -262,7 +150,6 @@ export type Database = {
           description: string
           difficulty: string
           id: string
-          sr: number | null
           title: string
           updated_at: string
         }
@@ -271,7 +158,6 @@ export type Database = {
           description: string
           difficulty: string
           id: string
-          sr?: number | null
           title: string
           updated_at?: string
         }
@@ -280,33 +166,70 @@ export type Database = {
           description?: string
           difficulty?: string
           id?: string
-          sr?: number | null
           title?: string
           updated_at?: string
         }
         Relationships: []
       }
+      practice_contest_results: {
+        Row: {
+          contest_id: string
+          created_at: string
+          id: string
+          is_completed: boolean
+          prn: string
+          updated_at: string
+        }
+        Insert: {
+          contest_id: string
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          prn: string
+          updated_at?: string
+        }
+        Update: {
+          contest_id?: string
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          prn?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_contest"
+            columns: ["contest_id"]
+            isOneToOne: false
+            referencedRelation: "contests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       practice_progress: {
         Row: {
           contest_id: string | null
+          created_at: string | null
           id: string
-          language_id: number | null
+          language_id: string | null
           last_updated: string | null
           prn: string | null
           user_code: string | null
         }
         Insert: {
           contest_id?: string | null
+          created_at?: string | null
           id: string
-          language_id?: number | null
+          language_id?: string | null
           last_updated?: string | null
           prn?: string | null
           user_code?: string | null
         }
         Update: {
           contest_id?: string | null
+          created_at?: string | null
           id?: string
-          language_id?: number | null
+          language_id?: string | null
           last_updated?: string | null
           prn?: string | null
           user_code?: string | null
@@ -321,112 +244,11 @@ export type Database = {
           },
         ]
       }
-      profiles: {
-        Row: {
-          bio: string | null
-          cgpa: number | null
-          college_name: string | null
-          created_at: string
-          github_url: string | null
-          id: string
-          linkedin_url: string | null
-          location: string | null
-          profile_picture_url: string | null
-          real_name: string
-          updated_at: string
-        }
-        Insert: {
-          bio?: string | null
-          cgpa?: number | null
-          college_name?: string | null
-          created_at?: string
-          github_url?: string | null
-          id: string
-          linkedin_url?: string | null
-          location?: string | null
-          profile_picture_url?: string | null
-          real_name: string
-          updated_at?: string
-        }
-        Update: {
-          bio?: string | null
-          cgpa?: number | null
-          college_name?: string | null
-          created_at?: string
-          github_url?: string | null
-          id?: string
-          linkedin_url?: string | null
-          location?: string | null
-          profile_picture_url?: string | null
-          real_name?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_id_fkey1"
-            columns: ["id"]
-            isOneToOne: true
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      projects: {
-        Row: {
-          created_at: string
-          description: string
-          end_date: string | null
-          id: string
-          image_url: string | null
-          project_url: string | null
-          start_date: string
-          technologies: string[] | null
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          description: string
-          end_date?: string | null
-          id?: string
-          image_url?: string | null
-          project_url?: string | null
-          start_date: string
-          technologies?: string[] | null
-          title: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          description?: string
-          end_date?: string | null
-          id?: string
-          image_url?: string | null
-          project_url?: string | null
-          start_date?: string
-          technologies?: string[] | null
-          title?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "projects_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       questions: {
         Row: {
           created_at: string
           difficulty: string
           id: string
-          practice_link: string | null
           solution_link: string
           title: string
           topic_id: string
@@ -436,7 +258,6 @@ export type Database = {
           created_at?: string
           difficulty: string
           id: string
-          practice_link?: string | null
           solution_link: string
           title: string
           topic_id: string
@@ -446,7 +267,6 @@ export type Database = {
           created_at?: string
           difficulty?: string
           id?: string
-          practice_link?: string | null
           solution_link?: string
           title?: string
           topic_id?: string
@@ -513,8 +333,8 @@ export type Database = {
         Row: {
           code: string | null
           id: string
-          language_id: number | null
-          question_id: number | null
+          language_id: string | null
+          question_id: string | null
           result_id: string | null
           score: number | null
           submitted_at: string | null
@@ -522,8 +342,8 @@ export type Database = {
         Insert: {
           code?: string | null
           id: string
-          language_id?: number | null
-          question_id?: number | null
+          language_id?: string | null
+          question_id?: string | null
           result_id?: string | null
           score?: number | null
           submitted_at?: string | null
@@ -531,8 +351,8 @@ export type Database = {
         Update: {
           code?: string | null
           id?: string
-          language_id?: number | null
-          question_id?: number | null
+          language_id?: string | null
+          question_id?: string | null
           result_id?: string | null
           score?: number | null
           submitted_at?: string | null
@@ -558,28 +378,28 @@ export type Database = {
         Row: {
           created_at: string | null
           expected: string | null
-          id: number
+          id: string
           input: string | null
           points: number | null
-          question_id: number | null
+          question_id: string | null
           visible: boolean | null
         }
         Insert: {
           created_at?: string | null
           expected?: string | null
-          id: number
+          id: string
           input?: string | null
           points?: number | null
-          question_id?: number | null
+          question_id?: string | null
           visible?: boolean | null
         }
         Update: {
           created_at?: string | null
           expected?: string | null
-          id?: number
+          id?: string
           input?: string | null
           points?: number | null
-          question_id?: number | null
+          question_id?: string | null
           visible?: boolean | null
         }
         Relationships: [
@@ -620,42 +440,6 @@ export type Database = {
             columns: ["learning_path_id"]
             isOneToOne: false
             referencedRelation: "learning_paths"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_badges: {
-        Row: {
-          badge_id: string
-          earned_at: string
-          id: string
-          user_id: string
-        }
-        Insert: {
-          badge_id: string
-          earned_at?: string
-          id?: string
-          user_id: string
-        }
-        Update: {
-          badge_id?: string
-          earned_at?: string
-          id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_badges_badge_id_fkey"
-            columns: ["badge_id"]
-            isOneToOne: false
-            referencedRelation: "badge_types"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_badges_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -705,73 +489,6 @@ export type Database = {
           },
         ]
       }
-      user_skills: {
-        Row: {
-          created_at: string
-          id: string
-          skill_name: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          skill_name: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          skill_name?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_skills_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_streaks: {
-        Row: {
-          created_at: string
-          current_streak: number
-          id: string
-          last_activity_date: string | null
-          max_streak: number
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          current_streak?: number
-          id?: string
-          last_activity_date?: string | null
-          max_streak?: number
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          current_streak?: number
-          id?: string
-          last_activity_date?: string | null
-          max_streak?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_streaks_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       users: {
         Row: {
           created_at: string
@@ -801,56 +518,6 @@ export type Database = {
           username?: string
         }
         Relationships: []
-      }
-      work_experience: {
-        Row: {
-          company: string
-          created_at: string
-          description: string
-          end_date: string | null
-          id: string
-          location: string | null
-          position: string
-          start_date: string
-          technologies: string[] | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          company: string
-          created_at?: string
-          description: string
-          end_date?: string | null
-          id?: string
-          location?: string | null
-          position: string
-          start_date: string
-          technologies?: string[] | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          company?: string
-          created_at?: string
-          description?: string
-          end_date?: string | null
-          id?: string
-          location?: string | null
-          position?: string
-          start_date?: string
-          technologies?: string[] | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "work_experience_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Views: {
