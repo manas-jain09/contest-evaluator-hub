@@ -10,19 +10,3 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-
-// Configure realtime subscription for the practice_contest_results table
-const configureRealtime = async () => {
-  // Enable realtime for test tables
-  const { error } = await supabase
-    .from('practice_contest_results')
-    .select('id')
-    .limit(1);
-
-  if (error) {
-    console.error("Error configuring realtime:", error);
-  }
-};
-
-// Initialize realtime subscriptions
-configureRealtime();
