@@ -7,10 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { lazy, Suspense } from "react";
 
 // Pages
-import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import Register from "./pages/Register";
-import Instructions from "./pages/Instructions";
 import Contest from "./pages/Contest";
 import Summary from "./pages/Summary";
 
@@ -34,12 +31,9 @@ const App = () => (
       <BrowserRouter>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
-            <Route path="/" element={<Register />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/instructions" element={<Instructions />} />
-            <Route path="/contest" element={<Contest />} />
+            <Route path="/" element={<Contest />} />
             <Route path="/summary" element={<Summary />} />
-            <Route path="/:contestCode/:prn?" element={<Contest />} />
+            <Route path="/:token" element={<Contest />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
