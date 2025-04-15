@@ -63,7 +63,8 @@ const Contest = () => {
         let userIdFromToken = '';
         
         if (token) {
-          const tokenData = verifyToken(token);
+          // Update here: await the Promise returned by verifyToken
+          const tokenData = await verifyToken(token);
           if (tokenData) {
             contestId = tokenData.questionId || '';
             userIdFromToken = tokenData.userId || '';
