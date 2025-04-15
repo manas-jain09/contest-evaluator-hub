@@ -4,7 +4,7 @@ import * as jose from 'jose';
 // JWT secret key
 const JWT_SECRET = new TextEncoder().encode("AstraCodeArenaHQSecretKey2025");
 
-interface TokenPayload {
+export interface TokenPayload {
   userId?: string;
   questionId?: string;
   [key: string]: any;

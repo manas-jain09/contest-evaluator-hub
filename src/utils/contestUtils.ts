@@ -111,7 +111,9 @@ export const getLanguageTemplates = async (questionId?: number) => {
   const templates: Record<number, string> = {};
   if (data) {
     data.forEach(template => {
-      templates[template.id] = template.template;
+      if (template.id !== null) {
+        templates[template.id] = template.template || '';
+      }
     });
   }
   
@@ -204,6 +206,7 @@ export const fetchQuestionsByContest = async (contestId: string) => {
       id: question.id,
       title: question.title,
       description: question.description,
+      question_type: question.question_type || 'coding', // Added question_type with default value
       examples: examples || [],
       constraints: constraintStrings,
       testCases: testCases || []

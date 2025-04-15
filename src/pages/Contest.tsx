@@ -17,7 +17,7 @@ import {
   savePracticeProgress,
   loadPracticeProgress
 } from '@/utils/contestUtils';
-import { verifyToken } from '@/utils/tokenUtils';
+import { verifyToken, TokenPayload } from '@/utils/tokenUtils';
 
 type TestResult = {
   index: number;
@@ -30,6 +30,17 @@ type TestResult = {
   visible?: boolean;
 };
 
+// Define explicit interface for Question to include question_type
+interface Question {
+  id: number;
+  title: string;
+  description: string;
+  question_type: string;
+  examples: any[];
+  constraints: string[];
+  testCases: any[];
+}
+
 const Contest = () => {
   const navigate = useNavigate();
   const { token } = useParams();
@@ -38,7 +49,7 @@ const Contest = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [questionTemplates, setQuestionTemplates] = useState<Record<number, string>>({});
   const [selectedLanguage, setSelectedLanguage] = useState<number>(54); // Default to C++
-  const [question, setQuestion] = useState<any>(null);
+  const [question, setQuestion] = useState<Question | null>(null);
   const [contestInfo, setContestInfo] = useState<any>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,7 +108,7 @@ const Contest = () => {
             }
             
             // Use the first question (since we're only displaying one)
-            setQuestion(fetchedQuestions[0]);
+            setQuestion(fetchedQuestions[0] as Question);
             
             // Get language templates
             const defaultTemplates = await getLanguageTemplates();
@@ -385,118 +396,150 @@ const Contest = () => {
     );
   }
   
+  // Render MCQ or Coding question based on question_type
+  const renderQuestionContent = () => {
+    if (question.question_type === 'mcq') {
+      return (
+        <div>
+          <h3 className="text-lg font-medium mb-2">MCQ Question</h3>
+          <div className="text-sm whitespace-pre-line">
+            {question.description}
+          </div>
+          {/* MCQ options would be displayed here */}
+          <p className="mt-4 text-gray-500 italic">MCQ implementation coming soon</p>
+        </div>
+      );
+    } else {
+      // Default to coding question
+      return (
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-lg font-medium mb-2">Description</h3>
+            <div className="text-sm whitespace-pre-line">
+              {question.description}
+            </div>
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-medium mb-2">Examples</h3>
+            <div className="space-y-4">
+              {question.examples.map((example: any, index: number) => (
+                <div key={index} className="bg-gray-50 rounded-md p-4 border border-gray-100">
+                  <div className="mb-2">
+                    <span className="text-xs font-medium text-gray-500">Input:</span>
+                    <pre className="mt-1 text-sm font-mono bg-white p-2 rounded border border-gray-100">
+                      {example.input}
+                    </pre>
+                  </div>
+                  <div className="mb-2">
+                    <span className="text-xs font-medium text-gray-500">Output:</span>
+                    <pre className="mt-1 text-sm font-mono bg-white p-2 rounded border border-gray-100">
+                      {example.output}
+                    </pre>
+                  </div>
+                  {example.explanation && (
+                    <div>
+                      <span className="text-xs font-medium text-gray-500">Explanation:</span>
+                      <p className="mt-1 text-sm">
+                        {example.explanation}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-medium mb-2">Constraints</h3>
+            <ul className="list-disc pl-5 text-sm space-y-1">
+              {question.constraints.map((constraint: string, index: number) => (
+                <li key={index}>{constraint}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      );
+    }
+  };
+  
   return (
     <div className="min-h-screen flex flex-col">
       <main className="flex-grow flex overflow-hidden">
         <div className="w-1/2 p-6 overflow-y-auto">
           <h1 className="text-2xl font-bold mb-4">{question.title}</h1>
-          
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium mb-2">Description</h3>
-              <div className="text-sm whitespace-pre-line">
-                {question.description}
-              </div>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-medium mb-2">Examples</h3>
-              <div className="space-y-4">
-                {question.examples.map((example: any, index: number) => (
-                  <div key={index} className="bg-gray-50 rounded-md p-4 border border-gray-100">
-                    <div className="mb-2">
-                      <span className="text-xs font-medium text-gray-500">Input:</span>
-                      <pre className="mt-1 text-sm font-mono bg-white p-2 rounded border border-gray-100">
-                        {example.input}
-                      </pre>
-                    </div>
-                    <div className="mb-2">
-                      <span className="text-xs font-medium text-gray-500">Output:</span>
-                      <pre className="mt-1 text-sm font-mono bg-white p-2 rounded border border-gray-100">
-                        {example.output}
-                      </pre>
-                    </div>
-                    {example.explanation && (
-                      <div>
-                        <span className="text-xs font-medium text-gray-500">Explanation:</span>
-                        <p className="mt-1 text-sm">
-                          {example.explanation}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-medium mb-2">Constraints</h3>
-              <ul className="list-disc pl-5 text-sm space-y-1">
-                {question.constraints.map((constraint: string, index: number) => (
-                  <li key={index}>{constraint}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          {renderQuestionContent()}
         </div>
         
         <div className="w-1/2 p-6 overflow-y-auto">
-          <CodeEditor 
-            initialCode={userCode}
-            onRun={handleRun}
-            onSubmit={handleSubmit}
-            isProcessing={isProcessing}
-            languageTemplates={questionTemplates}
-            questionId={question.id}
-            onLanguageChange={handleLanguageChange}
-            onCodeChange={handleCodeChange}
-          />
+          {question.question_type === 'coding' && (
+            <>
+              <CodeEditor 
+                initialCode={userCode}
+                onRun={handleRun}
+                onSubmit={handleSubmit}
+                isProcessing={isProcessing}
+                languageTemplates={questionTemplates}
+                questionId={question.id}
+                onLanguageChange={handleLanguageChange}
+                onCodeChange={handleCodeChange}
+              />
+              
+              <div className="mt-6">
+                <h3 className="text-lg font-medium mb-3">Test Results</h3>
+                
+                {isProcessing && (
+                  <div className="bg-red-50 rounded-md p-4 flex items-center text-contest-red mb-3">
+                    <div className="h-4 w-4 rounded-full border-2 border-contest-red/30 border-t-contest-red animate-spin mr-3"></div>
+                    <p className="text-sm">Evaluating your solution...</p>
+                  </div>
+                )}
+                
+                <div className="space-y-3">
+                  {!testResults || testResults.length === 0 ? (
+                    <div className="bg-gray-50 rounded-md p-6 border border-gray-100 text-center">
+                      <p className="text-muted-foreground text-sm">
+                        Run your code to see test results
+                      </p>
+                    </div>
+                  ) : (
+                    testResults.map((result, index) => (
+                      <TestCaseResult
+                        key={index}
+                        index={index + 1}
+                        status={result.status}
+                        input={result.input}
+                        expected={result.expected}
+                        output={result.output}
+                        message={result.message}
+                        points={result.points}
+                        visible={result.visible}
+                      />
+                    ))
+                  )}
+                </div>
+                
+                {question.testCases.some((tc: any) => !tc.visible) && (
+                  <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-100">
+                    <div className="flex items-start">
+                      <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 mr-2 flex-shrink-0" />
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-medium">Note:</span> There are {question.testCases.filter((tc: any) => !tc.visible).length} hidden test cases that will be evaluated when you submit your solution.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
           
-          <div className="mt-6">
-            <h3 className="text-lg font-medium mb-3">Test Results</h3>
-            
-            {isProcessing && (
-              <div className="bg-red-50 rounded-md p-4 flex items-center text-contest-red mb-3">
-                <div className="h-4 w-4 rounded-full border-2 border-contest-red/30 border-t-contest-red animate-spin mr-3"></div>
-                <p className="text-sm">Evaluating your solution...</p>
-              </div>
-            )}
-            
-            <div className="space-y-3">
-              {!testResults || testResults.length === 0 ? (
-                <div className="bg-gray-50 rounded-md p-6 border border-gray-100 text-center">
-                  <p className="text-muted-foreground text-sm">
-                    Run your code to see test results
-                  </p>
-                </div>
-              ) : (
-                testResults.map((result, index) => (
-                  <TestCaseResult
-                    key={index}
-                    index={index + 1}
-                    status={result.status}
-                    input={result.input}
-                    expected={result.expected}
-                    output={result.output}
-                    message={result.message}
-                    points={result.points}
-                    visible={result.visible}
-                  />
-                ))
-              )}
+          {question.question_type === 'mcq' && (
+            <div className="bg-gray-50 rounded-md p-6 border border-gray-100 text-center">
+              <p className="text-muted-foreground">
+                MCQ question type implementation coming soon
+              </p>
             </div>
-            
-            {question.testCases.some((tc: any) => !tc.visible) && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-100">
-                <div className="flex items-start">
-                  <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 mr-2 flex-shrink-0" />
-                  <p className="text-sm text-muted-foreground">
-                    <span className="font-medium">Note:</span> There are {question.testCases.filter((tc: any) => !tc.visible).length} hidden test cases that will be evaluated when you submit your solution.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </main>
 
