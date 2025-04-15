@@ -81,7 +81,7 @@ const Contest = () => {
       const currentCode = userCode[currentQuestion.id];
       const currentLanguage = selectedLanguages[currentQuestion.id];
       
-      if (currentCode && currentLanguage) {
+      if (currentCode && currentLanguage && prn) {
         savePracticeProgress(contestInfo.id, currentCode, currentLanguage, prn);
       }
     }, 30000);
@@ -118,27 +118,26 @@ const Contest = () => {
             
             const defaultTemplates = await getLanguageTemplates();
             
-            const initialUserCode: Record<number, string> = {};
-            const initialSelectedLanguages: Record<number, number> = {};
-            const initialTemplates: Record<number, Record<number, string>> = {};
+            const initialUserCode: Record<string, string> = {};
+            const initialSelectedLanguages: Record<string, number> = {};
+            const initialTemplates: Record<string, Record<number, string>> = {};
             
             await Promise.all(fetchedQuestions.map(async (q) => {
-              let languageId = 54;
+              let languageId = 54; // Default to C++
               initialSelectedLanguages[q.id] = languageId;
               
-              const questionSpecificTemplates = await getLanguageTemplates(q.id);
+              const questionSpecificTemplates = await getLanguageTemplates(parseInt(q.id));
               
               initialTemplates[q.id] = {
                 ...defaultTemplates,
                 ...questionSpecificTemplates
               };
               
-              if (isPracticeMode) {
+              if (isPracticeMode && prn) {
                 const progress = await loadPracticeProgress(contest.id, prn);
                 if (progress.code && progress.languageId) {
                   initialUserCode[q.id] = progress.code;
                   initialSelectedLanguages[q.id] = progress.languageId;
-                  languageId = progress.languageId;
                 } else {
                   initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
                 }
@@ -190,27 +189,26 @@ const Contest = () => {
         
         const defaultTemplates = await getLanguageTemplates();
         
-        const initialUserCode: Record<number, string> = {};
-        const initialSelectedLanguages: Record<number, number> = {};
-        const initialTemplates: Record<number, Record<number, string>> = {};
+        const initialUserCode: Record<string, string> = {};
+        const initialSelectedLanguages: Record<string, number> = {};
+        const initialTemplates: Record<string, Record<number, string>> = {};
         
         await Promise.all(fetchedQuestions.map(async (q) => {
-          let languageId = 54;
+          let languageId = 54; // Default to C++
           initialSelectedLanguages[q.id] = languageId;
           
-          const questionSpecificTemplates = await getLanguageTemplates(q.id);
+          const questionSpecificTemplates = await getLanguageTemplates(parseInt(q.id));
           
           initialTemplates[q.id] = {
             ...defaultTemplates,
             ...questionSpecificTemplates
           };
           
-          if (practiceMode) {
+          if (practiceMode && prn) {
             const progress = await loadPracticeProgress(contest.id, prn);
             if (progress.code && progress.languageId) {
               initialUserCode[q.id] = progress.code;
               initialSelectedLanguages[q.id] = progress.languageId;
-              languageId = progress.languageId;
             } else {
               initialUserCode[q.id] = initialTemplates[q.id][languageId] || defaultTemplates[languageId] || '';
             }
@@ -234,42 +232,6 @@ const Contest = () => {
     fetchData();
   }, [navigate, contestCode, prn]);
   
-  useEffect(() => {
-    if (!contestInfo || isPractice) return;
-    
-    if (document.documentElement.requestFullscreen && !isFullscreen) {
-      enterFullscreen();
-    }
-    
-    const startTime = sessionStorage.getItem('contestStartTime');
-    
-    if (!startTime) {
-      toast.error("You must start the contest from the instructions page");
-      navigate('/instructions');
-      return;
-    }
-    
-    const contestStartTime = JSON.parse(startTime);
-    const contestDurationMs = contestInfo.duration_mins * 60 * 1000;
-    const contestEndTime = contestStartTime + contestDurationMs;
-    
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const remaining = contestEndTime - now;
-      
-      if (remaining <= 0) {
-        clearInterval(interval);
-        setTimeLeft(0);
-        toast.error("Contest time is up!");
-        handleEndContest();
-      } else {
-        setTimeLeft(remaining);
-      }
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [contestInfo, navigate, isPractice, isFullscreen, enterFullscreen]);
-  
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -283,7 +245,7 @@ const Contest = () => {
       [questionId]: code
     }));
     
-    if (isPractice && contestInfo) {
+    if (isPractice && contestInfo && prn) {
       savePracticeProgress(contestInfo.id, code, selectedLanguages[questionId] || 54, prn);
     }
   };
@@ -489,7 +451,7 @@ const Contest = () => {
           score,
           false,
           [{
-            questionId: currentQuestion.id,
+            questionId: parseInt(currentQuestion.id),
             languageId,
             code,
             score

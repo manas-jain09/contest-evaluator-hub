@@ -1,3 +1,4 @@
+
 // Judge0 API endpoints
 const API_SUBMISSION_URL = "https://judge0.arenahq-mitwpu.in/submissions";
 
@@ -133,7 +134,7 @@ export const fetchContestByCode = async (code: string) => {
   return data;
 };
 
-// Fetch questions for a specific contest - Updated to use contest_questions
+// Fetch questions for a specific contest - Updated to use contest_questions and fetch constraints properly
 export const fetchQuestionsByContest = async (contestId: string) => {
   const { data: questionsData, error: questionsError } = await supabase
     .from('contest_questions')
@@ -158,15 +159,25 @@ export const fetchQuestionsByContest = async (contestId: string) => {
       return null;
     }
     
-    // For constraints, we'll handle differently since the table might not exist
+    // For constraints, try to extract from description or use a default set
     let constraintStrings: string[] = [];
-    try {
-      // This is a better approach than trying to query a non-existent table
-      const constraintsData = []; // Default empty array if no constraints table
-      constraintStrings = constraintsData.map((constraint: any) => constraint.description || '');
-    } catch (error) {
-      console.error(`Error handling constraints for question ${question.id}:`, error);
-      constraintStrings = [];
+    
+    // First try to extract constraints from the description if they follow a pattern
+    if (question.description) {
+      // Look for a "Constraints:" section in the description
+      const constraintMatch = question.description.match(/Constraints:(.+?)(?:\n\n|\n[A-Z]|$)/s);
+      if (constraintMatch && constraintMatch[1]) {
+        // Split by new lines and clean up
+        constraintStrings = constraintMatch[1]
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0);
+      }
+    }
+    
+    // If no constraints found, set a default constraint
+    if (constraintStrings.length === 0) {
+      constraintStrings = ["No specific constraints provided."];
     }
     
     // Fetch test cases
@@ -229,7 +240,7 @@ export const saveContestResults = async (
     code: string,
     score: number
   }>,
-  prn?: string // Added PRN parameter
+  prn?: string
 ) => {
   try {
     // Use provided PRN if available (from URL), otherwise use userInfo PRN
