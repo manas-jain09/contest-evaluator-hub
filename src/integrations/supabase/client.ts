@@ -11,16 +11,26 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-// Configure realtime subscription for the practice_contest_results table
+// Configure realtime subscription for the practice_contest_results and mcq_submissions tables
 const configureRealtime = async () => {
   // Enable realtime for test tables
-  const { error } = await supabase
+  const { error: practiceError } = await supabase
     .from('practice_contest_results')
     .select('id')
     .limit(1);
 
-  if (error) {
-    console.error("Error configuring realtime:", error);
+  if (practiceError) {
+    console.error("Error configuring realtime for practice_contest_results:", practiceError);
+  }
+  
+  // Enable realtime for mcq submissions
+  const { error: mcqError } = await supabase
+    .from('mcq_submissions')
+    .select('id')
+    .limit(1);
+    
+  if (mcqError) {
+    console.error("Error configuring realtime for mcq_submissions:", mcqError);
   }
 };
 

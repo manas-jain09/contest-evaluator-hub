@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, AlertTriangle, Clock, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/utils/toast';
@@ -8,6 +8,8 @@ import CodeEditor from '@/components/CodeEditor';
 import TestCaseResult from '@/components/TestCaseResult';
 import FullscreenAlert from '@/components/FullscreenAlert';
 import ResultsDialog from '@/components/ResultsDialog';
+import QuestionNavigation from '@/components/QuestionNavigation';
+import McqQuestion from '@/components/McqQuestion';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { 
   fetchQuestionsByContest,
@@ -21,6 +23,7 @@ import {
   loadPracticeProgress,
   updatePracticeContestResults
 } from '@/utils/contestUtils';
+import { supabase } from '@/integrations/supabase/client';
 
 type TestResult = {
   index: number;
@@ -40,7 +43,7 @@ interface ContestInfo {
   contest_code: string;
   start_date: string;
   end_date: string;
-  type: 'assessment' | 'practice';
+  type: 'assessment' | 'practice' | 'mixed';
   public_access: boolean;
 }
 
@@ -71,18 +74,23 @@ const Contest = () => {
     score: 0,
     maxScore: 0
   });
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isMixedContest, setIsMixedContest] = useState(false);
   
   const currentQuestion = questions[currentQuestionIndex];
+  const isMcqQuestion = currentQuestion?.question_type === 'mcq';
 
   useEffect(() => {
     if (!isPractice || !currentQuestion || !contestInfo) return;
     
     const autoSaveInterval = setInterval(() => {
-      const currentCode = userCode[currentQuestion.id];
-      const currentLanguage = selectedLanguages[currentQuestion.id];
-      
-      if (currentCode && currentLanguage && prn) {
-        savePracticeProgress(contestInfo.id, currentCode, currentLanguage, prn);
+      if (currentQuestion.question_type === 'coding') {
+        const currentCode = userCode[currentQuestion.id];
+        const currentLanguage = selectedLanguages[currentQuestion.id];
+        
+        if (currentCode && currentLanguage && prn) {
+          savePracticeProgress(contestInfo.id, currentCode, currentLanguage, prn);
+        }
       }
     }, 30000);
     
@@ -106,15 +114,46 @@ const Contest = () => {
             
             const typedContest: ContestInfo = {
               ...contest,
-              type: contest.type === 'practice' ? 'practice' : 'assessment'
+              type: contest.type === 'practice' 
+                ? 'practice' 
+                : contest.type === 'mixed'
+                  ? 'mixed'
+                  : 'assessment'
             };
             
             setContestInfo(typedContest);
+            setIsMixedContest(typedContest.type === 'mixed');
             const isPracticeMode = typedContest.type === 'practice';
             setIsPractice(isPracticeMode);
             
             const fetchedQuestions = await fetchQuestionsByContest(contest.id);
             setQuestions(fetchedQuestions);
+
+            if (typedContest.type === 'mixed' && prn) {
+              const mcqQuestionIds = fetchedQuestions
+                .filter(q => q.question_type === 'mcq')
+                .map(q => q.id);
+              
+              if (mcqQuestionIds.length > 0) {
+                const { data: submittedMcqs } = await supabase
+                  .from('mcq_submissions')
+                  .select('question_id')
+                  .in('question_id', mcqQuestionIds)
+                  .eq('prn', prn);
+                
+                if (submittedMcqs && submittedMcqs.length > 0) {
+                  const submitted: Record<string, boolean> = {};
+                  submittedMcqs.forEach(mcq => {
+                    submitted[mcq.question_id] = true;
+                  });
+                  
+                  setSubmittedQuestions(prev => ({
+                    ...prev,
+                    ...submitted
+                  }));
+                }
+              }
+            }
             
             const defaultTemplates = await getLanguageTemplates();
             
@@ -123,6 +162,10 @@ const Contest = () => {
             const initialTemplates: Record<string, Record<number, string>> = {};
             
             await Promise.all(fetchedQuestions.map(async (q) => {
+              if (q.question_type === 'mcq') {
+                return;
+              }
+              
               let languageId = 54; // Default to C++
               initialSelectedLanguages[q.id] = languageId;
               
@@ -265,7 +308,7 @@ const Contest = () => {
   };
   
   const handleRun = async (code: string, languageId: number) => {
-    if (!currentQuestion) return;
+    if (!currentQuestion || currentQuestion.question_type === 'mcq') return;
     
     setIsProcessing(true);
     
@@ -367,7 +410,7 @@ const Contest = () => {
   };
   
   const handleSubmit = async (code: string, languageId: number) => {
-    if (!currentQuestion || !contestInfo) return;
+    if (!currentQuestion || !contestInfo || currentQuestion.question_type === 'mcq') return;
     
     setIsProcessing(true);
     toast.info("Submitting your solution...");
@@ -497,6 +540,60 @@ const Contest = () => {
       setIsProcessing(false);
     }
   };
+
+  const handleMcqSubmit = async (selectedOptionId: string, isCorrect: boolean) => {
+    if (!currentQuestion || !contestInfo) return;
+
+    try {
+      setIsProcessing(true);
+
+      const { error } = await supabase.from('mcq_submissions').insert({
+        question_id: currentQuestion.id,
+        selected_option_id: selectedOptionId,
+        prn: prn || null
+      });
+
+      if (error) throw error;
+
+      const score = isCorrect ? (currentQuestion.points || 0) : 0;
+
+      setSubmittedQuestions(prev => ({
+        ...prev,
+        [currentQuestion.id]: true
+      }));
+
+      toast.success(isCorrect 
+        ? "Correct answer! Moving to next question..." 
+        : "Answer submitted. Moving to next question...");
+
+      if (!isPractice) {
+        const storedSubmissions = JSON.parse(sessionStorage.getItem('contestSubmissions') || '{}');
+        const updatedSubmissions = {
+          ...storedSubmissions,
+          [currentQuestion.id]: {
+            selectedOptionId,
+            isCorrect,
+            timestamp: Date.now(),
+            score
+          }
+        };
+        
+        sessionStorage.setItem('contestSubmissions', JSON.stringify(updatedSubmissions));
+      }
+
+      if (currentQuestionIndex < questions.length - 1) {
+        setTimeout(() => {
+          setCurrentQuestionIndex(currentQuestionIndex + 1);
+        }, 1500);
+      }
+
+    } catch (error) {
+      console.error("Error submitting MCQ answer:", error);
+      toast.error("Error submitting your answer. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
   
   const handlePrevQuestion = () => {
     if (currentQuestionIndex > 0) {
@@ -530,27 +627,47 @@ const Contest = () => {
         const submission = storedSubmissions[question.id];
         
         if (submission) {
-          results[question.id] = {
-            submitted: true,
-            score: submission.score || 0,
-            maxScore: question.testCases.reduce((sum: number, tc: any) => sum + (tc.points || 0), 0),
-            languageId: submission.languageId,
-            testResults: submission.results
-          };
-          totalScore += submission.score || 0;
-          
-          submissionsArray.push({
-            questionId: question.id,
-            languageId: submission.languageId,
-            code: submission.code,
-            score: submission.score || 0
-          });
+          if (question.question_type === 'mcq') {
+            results[question.id] = {
+              submitted: true,
+              score: submission.score || 0,
+              maxScore: question.points || 0,
+              selectedOptionId: submission.selectedOptionId,
+              isCorrect: submission.isCorrect
+            };
+            totalScore += submission.score || 0;
+            
+          } else {
+            results[question.id] = {
+              submitted: true,
+              score: submission.score || 0,
+              maxScore: question.testCases.reduce((sum: number, tc: any) => sum + (tc.points || 0), 0),
+              languageId: submission.languageId,
+              testResults: submission.results
+            };
+            totalScore += submission.score || 0;
+            
+            submissionsArray.push({
+              questionId: question.id,
+              languageId: submission.languageId,
+              code: submission.code,
+              score: submission.score || 0
+            });
+          }
         } else {
-          results[question.id] = {
-            submitted: false,
-            score: 0,
-            maxScore: question.testCases.reduce((sum: number, tc: any) => sum + (tc.points || 0), 0)
-          };
+          if (question.question_type === 'mcq') {
+            results[question.id] = {
+              submitted: false,
+              score: 0,
+              maxScore: question.points || 0
+            };
+          } else {
+            results[question.id] = {
+              submitted: false,
+              score: 0,
+              maxScore: question.testCases.reduce((sum: number, tc: any) => sum + (tc.points || 0), 0)
+            };
+          }
         }
       });
       
@@ -640,10 +757,63 @@ const Contest = () => {
             </Button>
           )}
         </div>
+
+        {isMixedContest && (
+          <div className="md:hidden">
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+            >
+              <Menu className="h-4 w-4 mr-2" />
+              Questions
+            </Button>
+          </div>
+        )}
       </header>
       
       <main className="flex-grow flex overflow-hidden">
-        <div className="w-1/2 contest-panel-left">
+        {isMixedContest && isMobileNavOpen && (
+          <div className="fixed inset-0 z-50 bg-black/50 md:hidden" onClick={() => setIsMobileNavOpen(false)}>
+            <div 
+              className="w-72 h-full bg-white overflow-auto p-0" 
+              onClick={e => e.stopPropagation()}
+            >
+              <QuestionNavigation 
+                questions={questions.map((q, index) => ({
+                  id: q.id,
+                  title: q.title,
+                  questionType: q.question_type,
+                  isSubmitted: submittedQuestions[q.id]
+                }))} 
+                currentQuestionIndex={currentQuestionIndex}
+                onSelectQuestion={(index) => {
+                  setCurrentQuestionIndex(index);
+                  setIsMobileNavOpen(false);
+                }}
+                isCollapsedOnMobile={false}
+              />
+            </div>
+          </div>
+        )}
+
+        {isMixedContest && (
+          <div className="hidden md:block w-64 border-r border-gray-200 overflow-auto">
+            <QuestionNavigation 
+              questions={questions.map((q, index) => ({
+                id: q.id,
+                title: q.title,
+                questionType: q.question_type,
+                isSubmitted: submittedQuestions[q.id]
+              }))} 
+              currentQuestionIndex={currentQuestionIndex}
+              onSelectQuestion={setCurrentQuestionIndex}
+              isCollapsedOnMobile={false}
+            />
+          </div>
+        )}
+        
+        <div className={`${isMixedContest ? 'md:w-[calc(50%-8rem)]' : 'w-1/2'} contest-panel-left overflow-auto`}>
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <span className="bg-contest-red/10 text-contest-red text-xs font-medium px-2 py-1 rounded mr-2">
@@ -655,9 +825,19 @@ const Contest = () => {
                   Submitted
                 </span>
               )}
+              {isMcqQuestion && (
+                <span className="ml-2 text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded font-medium">
+                  MCQ
+                </span>
+              )}
+              {currentQuestion.question_type === 'coding' && (
+                <span className="ml-2 text-xs bg-emerald-50 text-emerald-600 px-2 py-1 rounded font-medium">
+                  Coding
+                </span>
+              )}
             </div>
             
-            {questions.length > 1 && (
+            {questions.length > 1 && !isMixedContest && (
               <div className="flex space-x-2">
                 <Button 
                   variant="outline" 
@@ -685,113 +865,132 @@ const Contest = () => {
           
           <h1 className="text-2xl font-bold mb-4">{currentQuestion.title}</h1>
           
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium mb-2">Description</h3>
-              <div className="text-sm whitespace-pre-line">
-                {currentQuestion.description}
+          {!isMcqQuestion && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium mb-2">Description</h3>
+                <div className="text-sm whitespace-pre-line">
+                  {currentQuestion.description}
+                </div>
               </div>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-medium mb-2">Examples</h3>
-              <div className="space-y-4">
-                {currentQuestion.examples.map((example: any, index: number) => (
-                  <div key={index} className="bg-gray-50 rounded-md p-4 border border-gray-100">
-                    <div className="mb-2">
-                      <span className="text-xs font-medium text-gray-500">Input:</span>
-                      <pre className="mt-1 text-sm font-mono bg-white p-2 rounded border border-gray-100">
-                        {example.input}
-                      </pre>
-                    </div>
-                    <div className="mb-2">
-                      <span className="text-xs font-medium text-gray-500">Output:</span>
-                      <pre className="mt-1 text-sm font-mono bg-white p-2 rounded border border-gray-100">
-                        {example.output}
-                      </pre>
-                    </div>
-                    {example.explanation && (
-                      <div>
-                        <span className="text-xs font-medium text-gray-500">Explanation:</span>
-                        <p className="mt-1 text-sm">
-                          {example.explanation}
-                        </p>
+              
+              <div>
+                <h3 className="text-lg font-medium mb-2">Examples</h3>
+                <div className="space-y-4">
+                  {currentQuestion.examples && currentQuestion.examples.map((example: any, index: number) => (
+                    <div key={index} className="bg-gray-50 rounded-md p-4 border border-gray-100">
+                      <div className="mb-2">
+                        <span className="text-xs font-medium text-gray-500">Input:</span>
+                        <pre className="mt-1 text-sm font-mono bg-white p-2 rounded border border-gray-100">
+                          {example.input}
+                        </pre>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      <div className="mb-2">
+                        <span className="text-xs font-medium text-gray-500">Output:</span>
+                        <pre className="mt-1 text-sm font-mono bg-white p-2 rounded border border-gray-100">
+                          {example.output}
+                        </pre>
+                      </div>
+                      {example.explanation && (
+                        <div>
+                          <span className="text-xs font-medium text-gray-500">Explanation:</span>
+                          <p className="mt-1 text-sm">
+                            {example.explanation}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="text-lg font-medium mb-2">Constraints</h3>
+                <ul className="list-disc pl-5 text-sm space-y-1">
+                  {currentQuestion.constraints && currentQuestion.constraints.map((constraint: string, index: number) => (
+                    <li key={index}>{constraint}</li>
+                  ))}
+                </ul>
               </div>
             </div>
-            
-            <div>
-              <h3 className="text-lg font-medium mb-2">Constraints</h3>
-              <ul className="list-disc pl-5 text-sm space-y-1">
-                {currentQuestion.constraints.map((constraint: string, index: number) => (
-                  <li key={index}>{constraint}</li>
-                ))}
-              </ul>
+          )}
+
+          {isMcqQuestion && (
+            <div className="space-y-4">
+              <McqQuestion
+                questionId={currentQuestion.id}
+                title={currentQuestion.title}
+                description={currentQuestion.description}
+                imageUrl={currentQuestion.image_url}
+                onSubmit={handleMcqSubmit}
+                isSubmitted={submittedQuestions[currentQuestion.id]}
+                prn={prn}
+                contestId={contestInfo?.id}
+              />
             </div>
-          </div>
+          )}
         </div>
         
-        <div className="w-1/2 contest-panel-right">
-          <CodeEditor 
-            initialCode={userCode[currentQuestion.id] || ''}
-            onRun={handleRun}
-            onSubmit={handleSubmit}
-            isProcessing={isProcessing}
-            languageTemplates={questionTemplates[currentQuestion.id] || {}}
-            questionId={currentQuestion.id}
-            onLanguageChange={(languageId) => handleLanguageChange(currentQuestion.id, languageId)}
-            onCodeChange={(code) => handleCodeChange(currentQuestion.id, code)}
-          />
-          
-          <div className="mt-6">
-            <h3 className="text-lg font-medium mb-3">Test Results</h3>
+        {!isMcqQuestion && (
+          <div className={`${isMixedContest ? 'md:w-[calc(50%+8rem)]' : 'w-1/2'} contest-panel-right overflow-auto`}>
+            <CodeEditor 
+              initialCode={userCode[currentQuestion.id] || ''}
+              onRun={handleRun}
+              onSubmit={handleSubmit}
+              isProcessing={isProcessing}
+              languageTemplates={questionTemplates[currentQuestion.id] || {}}
+              questionId={currentQuestion.id}
+              onLanguageChange={(languageId) => handleLanguageChange(currentQuestion.id, languageId)}
+              onCodeChange={(code) => handleCodeChange(currentQuestion.id, code)}
+            />
             
-            {isProcessing && (
-              <div className="bg-red-50 rounded-md p-4 flex items-center text-contest-red mb-3">
-                <div className="h-4 w-4 rounded-full border-2 border-contest-red/30 border-t-contest-red animate-spin mr-3"></div>
-                <p className="text-sm">Evaluating your solution...</p>
-              </div>
-            )}
-            
-            <div className="space-y-3">
-              {!testResults[currentQuestion.id] || testResults[currentQuestion.id].length === 0 ? (
-                <div className="bg-gray-50 rounded-md p-6 border border-gray-100 text-center">
-                  <p className="text-muted-foreground text-sm">
-                    Run your code to see test results
-                  </p>
+            <div className="mt-6">
+              <h3 className="text-lg font-medium mb-3">Test Results</h3>
+              
+              {isProcessing && (
+                <div className="bg-red-50 rounded-md p-4 flex items-center text-contest-red mb-3">
+                  <div className="h-4 w-4 rounded-full border-2 border-contest-red/30 border-t-contest-red animate-spin mr-3"></div>
+                  <p className="text-sm">Evaluating your solution...</p>
                 </div>
-              ) : (
-                testResults[currentQuestion.id].map((result, index) => (
-                  <TestCaseResult
-                    key={index}
-                    index={index + 1}
-                    status={result.status}
-                    input={result.input}
-                    expected={result.expected}
-                    output={result.output}
-                    message={result.message}
-                    points={result.points}
-                    visible={result.visible}
-                  />
-                ))
+              )}
+              
+              <div className="space-y-3">
+                {!testResults[currentQuestion.id] || testResults[currentQuestion.id].length === 0 ? (
+                  <div className="bg-gray-50 rounded-md p-6 border border-gray-100 text-center">
+                    <p className="text-muted-foreground text-sm">
+                      Run your code to see test results
+                    </p>
+                  </div>
+                ) : (
+                  testResults[currentQuestion.id].map((result, index) => (
+                    <TestCaseResult
+                      key={index}
+                      index={index + 1}
+                      status={result.status}
+                      input={result.input}
+                      expected={result.expected}
+                      output={result.output}
+                      message={result.message}
+                      points={result.points}
+                      visible={result.visible}
+                    />
+                  ))
+                )}
+              </div>
+              
+              {currentQuestion.testCases && currentQuestion.testCases.some((tc: any) => !tc.visible) && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-100">
+                  <div className="flex items-start">
+                    <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 mr-2 flex-shrink-0" />
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium">Note:</span> There are {currentQuestion.testCases.filter((tc: any) => !tc.visible).length} hidden test cases that will be evaluated when you submit your solution.
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
-            
-            {currentQuestion.testCases.some((tc: any) => !tc.visible) && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-100">
-                <div className="flex items-start">
-                  <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 mr-2 flex-shrink-0" />
-                  <p className="text-sm text-muted-foreground">
-                    <span className="font-medium">Note:</span> There are {currentQuestion.testCases.filter((tc: any) => !tc.visible).length} hidden test cases that will be evaluated when you submit your solution.
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
-        </div>
+        )}
       </main>
 
       {isPractice && (
