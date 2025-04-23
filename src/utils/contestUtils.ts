@@ -94,7 +94,7 @@ export const getLanguageTemplates = async (questionId?: number) => {
   
   if (questionId) {
     // If questionId is provided, get templates specific to that question
-    query = query.eq('question_id', questionId);
+    query = query.eq('question_id', questionId.toString());
   } else {
     // Otherwise get templates that aren't tied to a specific question
     query = query.is('question_id', null);
@@ -111,9 +111,7 @@ export const getLanguageTemplates = async (questionId?: number) => {
   const templates: Record<number, string> = {};
   if (data) {
     data.forEach(template => {
-      if (template.id !== null) {
-        templates[template.id] = template.template || '';
-      }
+      templates[parseInt(template.id)] = template.template || '';
     });
   }
   
@@ -136,23 +134,7 @@ export const fetchContestByCode = async (code: string) => {
   return data;
 };
 
-// Fetch contest by ID
-export const fetchContestById = async (id: string) => {
-  const { data, error } = await supabase
-    .from('contests')
-    .select('*')
-    .eq('id', id)
-    .single();
-  
-  if (error) {
-    console.error("Error fetching contest:", error);
-    throw new Error("Failed to fetch contest information");
-  }
-  
-  return data;
-};
-
-// Fetch questions for a specific contest
+// Fetch questions for a specific contest - Updated to use contest_questions and fetch constraints properly
 export const fetchQuestionsByContest = async (contestId: string) => {
   const { data: questionsData, error: questionsError } = await supabase
     .from('contest_questions')
@@ -177,15 +159,25 @@ export const fetchQuestionsByContest = async (contestId: string) => {
       return null;
     }
     
-    // Fetch constraints
-    const { data: constraints, error: constraintsError } = await supabase
-      .from('constraints')
-      .select('*')
-      .eq('question_id', question.id);
+    // For constraints, try to extract from description or use a default set
+    let constraintStrings: string[] = [];
     
-    if (constraintsError) {
-      console.error(`Error fetching constraints for question ${question.id}:`, constraintsError);
-      return null;
+    // First try to extract constraints from the description if they follow a pattern
+    if (question.description) {
+      // Look for a "Constraints:" section in the description
+      const constraintMatch = question.description.match(/Constraints:(.+?)(?:\n\n|\n[A-Z]|$)/s);
+      if (constraintMatch && constraintMatch[1]) {
+        // Split by new lines and clean up
+        constraintStrings = constraintMatch[1]
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0);
+      }
+    }
+    
+    // If no constraints found, set a default constraint
+    if (constraintStrings.length === 0) {
+      constraintStrings = ["No specific constraints provided."];
     }
     
     // Fetch test cases
@@ -199,14 +191,10 @@ export const fetchQuestionsByContest = async (contestId: string) => {
       return null;
     }
     
-    // Map constraint objects to constraint strings
-    const constraintStrings = constraints ? constraints.map(constraint => constraint.description) : [];
-    
     return {
       id: question.id,
-      title: question.title,
-      description: question.description,
-      question_type: question.question_type || 'coding', // Added question_type with default value
+      title: question.title || '',
+      description: question.description || '',
       examples: examples || [],
       constraints: constraintStrings,
       testCases: testCases || []
@@ -217,15 +205,32 @@ export const fetchQuestionsByContest = async (contestId: string) => {
   return questions.filter(question => question !== null);
 };
 
-// Save contest results to the database (fixed to handle missing id field)
+// Fetch all questions (legacy method, now calls fetchQuestionsByContest with the first contest)
+export const fetchQuestions = async () => {
+  // Get the first contest
+  const { data: contestData } = await supabase
+    .from('contests')
+    .select('id')
+    .limit(1)
+    .single();
+  
+  if (!contestData) {
+    console.error("No contests found");
+    return [];
+  }
+  
+  return fetchQuestionsByContest(contestData.id);
+};
+
+// Save contest results to the database
 export const saveContestResults = async (
   contestId: string, 
   userInfo: { 
     name: string, 
     email: string, 
     prn: string, 
-    year?: string, 
-    batch?: string 
+    year: string, 
+    batch: string 
   } | null,
   score: number, 
   cheatingDetected: boolean = false,
@@ -235,62 +240,56 @@ export const saveContestResults = async (
     code: string,
     score: number
   }>,
-  prn?: string // Added PRN parameter
+  prn?: string
 ) => {
   try {
     // Use provided PRN if available (from URL), otherwise use userInfo PRN
     const submissionPrn = prn || (userInfo ? userInfo.prn : null);
     
     // For practice contest or if we have a PRN without user info
-    if (!userInfo || submissionPrn) {
+    if (!userInfo && submissionPrn) {
       // If we have a PRN, save the result with minimal info
-      if (submissionPrn) {
-        const resultData = {
-          id: crypto.randomUUID(), // Generate UUID for id field
+      const { data: resultData, error: resultError } = await supabase
+        .from('results')
+        .insert({
+          id: crypto.randomUUID(),
           contest_id: contestId,
           prn: submissionPrn,
           name: "Practice User",
-          email: "practice@example.com",
+          email: `practice_${submissionPrn}@example.com`,
           score: score,
           cheating_detected: cheatingDetected
-        };
+        })
+        .select()
+        .single();
         
-        const { data: resultResponse, error: resultError } = await supabase
-          .from('results')
-          .insert(resultData)
-          .select()
-          .single();
-          
-        if (resultError) {
-          console.error("Error saving contest results:", resultError);
-          throw new Error("Failed to save contest results");
-        }
-        
-        // Save each submission
-        if (submissions.length > 0 && resultResponse?.id) {
-          for (const sub of submissions) {
-            const submissionRecord = {
-              id: crypto.randomUUID(), // Generate UUID for id
-              result_id: resultResponse.id,
-              question_id: sub.questionId,
-              language_id: sub.languageId,
-              code: sub.code,
-              score: sub.score
-            };
-            
-            const { error: submissionError } = await supabase
-              .from('submissions')
-              .insert(submissionRecord);
-            
-            if (submissionError) {
-              console.error("Error saving submission:", submissionError);
-            }
-          }
-        }
-        
-        return resultResponse;
+      if (resultError) {
+        console.error("Error saving contest results:", resultError);
+        throw new Error("Failed to save contest results");
       }
       
+      // Save each submission
+      if (submissions.length > 0) {
+        const submissionRecords = submissions.map(sub => ({
+          id: crypto.randomUUID(),
+          result_id: resultData.id,
+          question_id: sub.questionId.toString(),
+          language_id: sub.languageId.toString(),
+          code: sub.code,
+          score: sub.score
+        }));
+        
+        const { error: submissionError } = await supabase
+          .from('submissions')
+          .insert(submissionRecords);
+        
+        if (submissionError) {
+          console.error("Error saving submissions:", submissionError);
+        }
+      }
+      
+      return resultData;
+    } else if (!userInfo) {
       // Just return without saving for practice mode without PRN
       if (submissions.length > 0) {
         return { contest_id: contestId, score: score };
@@ -298,22 +297,20 @@ export const saveContestResults = async (
       return null;
     }
     
-    // Save the result with full user data
-    const resultData = {
-      id: crypto.randomUUID(), // Generate UUID for id
-      contest_id: contestId,
-      name: userInfo.name,
-      email: userInfo.email,
-      prn: userInfo.prn,
-      year: userInfo.year || null,
-      batch: userInfo.batch || null,
-      cheating_detected: cheatingDetected,
-      score: score
-    };
-    
-    const { data: resultResponse, error: resultError } = await supabase
+    // Save the result with full user info
+    const { data: resultData, error: resultError } = await supabase
       .from('results')
-      .insert(resultData)
+      .insert({
+        id: crypto.randomUUID(),
+        contest_id: contestId,
+        name: userInfo.name,
+        email: userInfo.email,
+        prn: userInfo.prn,
+        year: userInfo.year,
+        batch: userInfo.batch,
+        cheating_detected: cheatingDetected,
+        score: score
+      })
       .select()
       .single();
     
@@ -323,28 +320,26 @@ export const saveContestResults = async (
     }
     
     // Save each submission
-    if (submissions.length > 0 && resultResponse?.id) {
-      for (const sub of submissions) {
-        const submissionRecord = {
-          id: crypto.randomUUID(), // Generate UUID for id
-          result_id: resultResponse.id,
-          question_id: sub.questionId,
-          language_id: sub.languageId,
-          code: sub.code,
-          score: sub.score
-        };
-        
-        const { error: submissionError } = await supabase
-          .from('submissions')
-          .insert(submissionRecord);
-        
-        if (submissionError) {
-          console.error("Error saving submission:", submissionError);
-        }
+    if (submissions.length > 0) {
+      const submissionRecords = submissions.map(sub => ({
+        id: crypto.randomUUID(),
+        result_id: resultData.id,
+        question_id: sub.questionId.toString(),
+        language_id: sub.languageId.toString(),
+        code: sub.code,
+        score: sub.score
+      }));
+      
+      const { error: submissionError } = await supabase
+        .from('submissions')
+        .insert(submissionRecords);
+      
+      if (submissionError) {
+        console.error("Error saving submissions:", submissionError);
       }
     }
     
-    return resultResponse;
+    return resultData;
   } catch (error) {
     console.error("Error in saveContestResults:", error);
     throw error;
@@ -372,7 +367,7 @@ export const isPracticeContest = async (contestId: string): Promise<boolean> => 
   }
 };
 
-// Save practice progress (fixed to handle missing id field)
+// Save practice progress
 export const savePracticeProgress = async (
   contestId: string,
   code: string,
@@ -380,12 +375,17 @@ export const savePracticeProgress = async (
   prn?: string
 ): Promise<void> => {
   try {
-    // Check if there's an existing record for this user/PRN
+    if (!prn) {
+      console.error("Missing PRN for saving practice progress");
+      return;
+    }
+
+    // Check if there's an existing record for this PRN
     const { data: existingData, error: fetchError } = await supabase
       .from('practice_progress')
       .select('id')
       .eq('contest_id', contestId)
-      .eq('prn', prn || null)
+      .eq('prn', prn)
       .limit(1);
     
     if (fetchError) {
@@ -399,7 +399,7 @@ export const savePracticeProgress = async (
         .from('practice_progress')
         .update({
           user_code: code,
-          language_id: languageId,
+          language_id: languageId.toString(),
           last_updated: new Date().toISOString()
         })
         .eq('id', existingData[0].id);
@@ -409,18 +409,15 @@ export const savePracticeProgress = async (
       }
     } else {
       // Insert new record
-      const newRecord = {
-        id: crypto.randomUUID(), // Generate UUID for id
-        contest_id: contestId,
-        user_code: code,
-        language_id: languageId,
-        prn: prn, // Store PRN if available
-        last_updated: new Date().toISOString()
-      };
-      
       const { error: insertError } = await supabase
         .from('practice_progress')
-        .insert(newRecord);
+        .insert({
+          id: crypto.randomUUID(),
+          contest_id: contestId,
+          user_code: code,
+          language_id: languageId.toString(),
+          prn: prn
+        });
       
       if (insertError) {
         console.error("Error inserting practice progress:", insertError);
@@ -434,24 +431,84 @@ export const savePracticeProgress = async (
 // Load practice progress
 export const loadPracticeProgress = async (contestId: string, prn?: string): Promise<{ code: string | null, languageId: number | null }> => {
   try {
+    if (!prn) {
+      return { code: null, languageId: null };
+    }
+
     const { data, error } = await supabase
       .from('practice_progress')
       .select('user_code, language_id')
       .eq('contest_id', contestId)
-      .eq('prn', prn || null)
-      .limit(1)
-      .single();
+      .eq('prn', prn)
+      .maybeSingle();
     
-    if (error) {
+    if (error || !data) {
       return { code: null, languageId: null };
     }
     
     return { 
       code: data.user_code, 
-      languageId: data.language_id 
+      languageId: data.language_id ? parseInt(data.language_id) : null 
     };
   } catch (error) {
     console.error("Error in loadPracticeProgress:", error);
     return { code: null, languageId: null };
+  }
+};
+
+// New function to update practice contest results
+export const updatePracticeContestResults = async (
+  contestId: string,
+  prn: string,
+  isCompleted: boolean
+): Promise<void> => {
+  try {
+    if (!prn || !contestId) {
+      console.error("Missing PRN or contest ID for updating practice results");
+      return;
+    }
+
+    // Check if there's an existing record for this PRN and contest
+    const { data: existingData, error: fetchError } = await supabase
+      .from('practice_contest_results')
+      .select('id')
+      .eq('contest_id', contestId)
+      .eq('prn', prn)
+      .maybeSingle();
+    
+    if (fetchError) {
+      console.error("Error fetching practice contest results:", fetchError);
+      return;
+    }
+    
+    if (existingData) {
+      // Update existing record
+      const { error: updateError } = await supabase
+        .from('practice_contest_results')
+        .update({
+          is_completed: isCompleted,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingData.id);
+      
+      if (updateError) {
+        console.error("Error updating practice contest results:", updateError);
+      }
+    } else {
+      // Insert new record
+      const { error: insertError } = await supabase
+        .from('practice_contest_results')
+        .insert({
+          contest_id: contestId,
+          prn: prn,
+          is_completed: isCompleted
+        });
+      
+      if (insertError) {
+        console.error("Error inserting practice contest results:", insertError);
+      }
+    }
+  } catch (error) {
+    console.error("Error in updatePracticeContestResults:", error);
   }
 };
